@@ -5573,7 +5573,9 @@ run(function()
 	local Users
 	
 	local cUsernames = {
-		["LaylaPowerGalaxy"] = true,
+		["LaylaPowerGalaxy"] = 'known exp',
+		['WyRaff'] = 'speed',
+		['Bonjour394'] = 'skid'
 	}
 	
 	local function playerAdded(plr)
