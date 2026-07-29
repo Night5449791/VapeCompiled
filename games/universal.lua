@@ -230,7 +230,6 @@ local function motorMove(target, cf)
 	task.delay(0, part.Destroy, part)
 end
 
-local cheaterlist = loadstring(downloadFile('newvape/libraries/clist.lua'), 'clist')()
 local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
 local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
 entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
@@ -249,7 +248,6 @@ local whitelist = {
 	localprio = 0,
 	said = {}
 }
-vape.Libraries.cheaterlist = clist
 vape.Libraries.entity = entitylib
 vape.Libraries.whitelist = whitelist
 vape.Libraries.prediction = prediction
