@@ -2364,7 +2364,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					sendMessage('Kicked', plr, 'skill issue cheat | <obj>')
+					sendMessage('Kicked', plr, 'imagine using DetectedWare | <obj>')
 				end))
 			end
 		end,
@@ -2432,7 +2432,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				CheatDetector:Clean(vapeEvents.CheatFlagged.Event:Connect(function(plr, flagname)
-					notif('CheatDetector', 'This player may be cheating! ('..flagname..'): '..plr.Name, 60, 'warning')
+					notif('CheatDetector', 'This player may be larping via DTCware! ('..flagname..'): '..plr.Name, 60, 'warning')
 					if AddTarget.Enabled then
 						tempTargets[plr.Name] = true
 					end
@@ -2450,7 +2450,7 @@ run(function()
 					for _, ent in entitylib.List do
 						if ent.Health > 0 and ent.Player then
 							if not checkPoint(ent.Head.Position, overlap) then
-								CheatFlags:Flag(ent.Player, 'phase/noclip', 20)
+								CheatFlags:Flag(ent.Player, 'noclip', 20)
 							end
 	
 							if not whiteliststates[ent.Humanoid:GetState()] then
@@ -2461,7 +2461,7 @@ run(function()
 							if not ent.Humanoid.SeatPart then
 								if (velo * Vector3.new(1, 0, 1)).Magnitude > 26 then
 									if #workspace:GetPartBoundsInRadius(ent.RootPart.Position, 30, caroverlap) <= 0 then
-										CheatFlags:Flag(ent.Player, 'speed', 20)
+										CheatFlags:Flag(ent.Player, 'speedhack', 20)
 									end
 								end
 	
@@ -2484,41 +2484,6 @@ run(function()
 		Name = 'Temporary Target',
 		Tooltip = 'Add temporary combat module priority for cheaters.',
 		Default = true
-	})
-end)
-
-run(function()
-	local Disabler
-	local old
-	
-	local function EntityAdded(ent)
-		task.defer(function()
-			old = getconnections(ent.Head:GetPropertyChangedSignal('CanCollide'))[1]
-			if old then
-				old:Disable()
-			end
-		end)
-	end
-	
-	Disabler = vape.Categories.Utility:CreateModule({
-		Name = 'Disabler',
-		Function = function(callback)
-			if callback then
-				Disabler:Clean(entitylib.Events.LocalAdded:Connect(EntityAdded))
-				if entitylib.isAlive then
-					task.spawn(EntityAdded, entitylib.character)
-				end
-			else
-				if old then
-					old:Enable()
-					old = nil
-				end
-			end
-		end,
-		Tooltip = 'Fixes phase with Character mode.',
-		ExtraText = function()
-			return 'Phase'
-		end
 	})
 end)
 
