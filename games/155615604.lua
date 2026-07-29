@@ -2111,28 +2111,6 @@ run(function()
 end)
 
 run(function()
-	local CameraPhase
-	local old
-	
-	CameraPhase = vape.Categories.Render:CreateModule({
-		Name = 'CameraPhase',
-		Function = function(callback)
-			if callback then
-				local req = require(lplr.PlayerScripts.PlayerModule.CameraModule.ZoomController.Popper)
-				old = debug.getupvalue(debug.getupvalue(req, 3), 7)
-				debug.setconstant(old, 16, 0)
-			else
-				if old then
-					debug.setconstant(old, 16, 0.25)
-					old = nil
-				end
-			end
-		end,
-		Tooltip = 'Allow the camera to phase through walls.'
-	})
-end)
-
-run(function()
 	local KillNotifications
 	
 	KillNotifications = vape.Categories.Render:CreateModule({
@@ -2364,7 +2342,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					sendMessage('Kicked', plr, 'imagine being detected | <obj>')
+					sendMessage('Kicked', plr, 'skill issue | <obj>')
 				end))
 			end
 		end,
@@ -2432,7 +2410,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				CheatDetector:Clean(vapeEvents.CheatFlagged.Event:Connect(function(plr, flagname)
-					notif('CheatDetector', 'This player may be larping via DTCware! ('..flagname..'): '..plr.Name, 60, 'warning')
+					notif('CheatDetector', 'This player may be cheating! ('..flagname..'): '..plr.Name, 60, 'warning')
 					if AddTarget.Enabled then
 						tempTargets[plr.Name] = true
 					end
@@ -2450,7 +2428,7 @@ run(function()
 					for _, ent in entitylib.List do
 						if ent.Health > 0 and ent.Player then
 							if not checkPoint(ent.Head.Position, overlap) then
-								CheatFlags:Flag(ent.Player, 'noclip', 20)
+								CheatFlags:Flag(ent.Player, 'phase/noclip', 20)
 							end
 	
 							if not whiteliststates[ent.Humanoid:GetState()] then
@@ -2461,7 +2439,7 @@ run(function()
 							if not ent.Humanoid.SeatPart then
 								if (velo * Vector3.new(1, 0, 1)).Magnitude > 26 then
 									if #workspace:GetPartBoundsInRadius(ent.RootPart.Position, 30, caroverlap) <= 0 then
-										CheatFlags:Flag(ent.Player, 'speedhack', 20)
+										CheatFlags:Flag(ent.Player, 'speed', 20)
 									end
 								end
 	
