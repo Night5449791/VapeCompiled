@@ -5921,6 +5921,8 @@ run(function()
 end)
 
 run(function()
+	-- i vibe coded this man 
+	
 	local CheaterDetector
 	local Mode
 	local Profile
@@ -5928,15 +5930,20 @@ run(function()
 	local Group
 	local Role
 	
+	local cIds, cNames = {}, {}
+	for _, v in ipairs(clist.cuserids or {}) do cIds[v] = true end
+	for _, v in ipairs(clist.cusernames or {}) do cNames[v:lower()] = true end
+	
 	local function playerAdded(plr)
 		if not vape.Loaded then
 			repeat task.wait() until vape.Loaded
 		end
-	
 		local user = table.find(Users.ListEnabled, tostring(plr.UserId))
-		
-		if user then
-			notif('CheaterDetector', 'Cheater Detected ('..(user and 'blacklisted_user')..'): '..plr.Name, 60, 'alert')
+		local reason = user and 'blacklisted_user'
+			or cIds[plr.UserId] and 'clist_userid'
+			or cNames[plr.Name:lower()] and 'clist_username'
+		if reason then
+			notif('CheaterDetector', 'Cheater Detected ('..reason..'): '..plr.Name, 60, 'alert')
 			whitelist.customtags[plr.Name] = {{text = 'CHEATER', color = Color3.new(1, 0, 0)}}
 		end
 	end
