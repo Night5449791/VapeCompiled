@@ -230,6 +230,7 @@ local function motorMove(target, cf)
 	task.delay(0, part.Destroy, part)
 end
 
+local cheaterlist = loadstring(downloadFile('newvape/libraries/clist.lua'), 'clist')()
 local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
 local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
 entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
@@ -248,6 +249,7 @@ local whitelist = {
 	localprio = 0,
 	said = {}
 }
+vape.Libraries.cheaterlist = clist
 vape.Libraries.entity = entitylib
 vape.Libraries.whitelist = whitelist
 vape.Libraries.prediction = prediction
@@ -5915,6 +5917,41 @@ run(function()
 				ChatSpammer:Toggle()
 			end
 		end
+	})
+end)
+
+run(function()
+	local CheaterDetector
+	local Mode
+	local Profile
+	local Users
+	local Group
+	local Role
+	
+	local function playerAdded(plr)
+		if not vape.Loaded then
+			repeat task.wait() until vape.Loaded
+		end
+	
+		local user = table.find(Users.ListEnabled, tostring(plr.UserId))
+		
+		if user then
+			notif('CheaterDetector', 'Cheater Detected ('..(user and 'blacklisted_user')..'): '..plr.Name, 60, 'alert')
+			whitelist.customtags[plr.Name] = {{text = 'CHEATER', color = Color3.new(1, 0, 0)}}
+		end
+	end
+	
+	CheaterDetector = vape.Categories.Utility:CreateModule({
+		Name = 'CheaterDetector',
+		Function = function(callback)
+			if callback then
+				CheaterDetector:Clean(playersService.PlayerAdded:Connect(playerAdded))
+				for _, v in playersService:GetPlayers() do
+					task.spawn(playerAdded, v)
+				end
+			end
+		end,
+		Tooltip = 'Detects people with history of cheating',
 	})
 end)
 
