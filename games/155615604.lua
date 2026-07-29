@@ -2364,7 +2364,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					sendMessage('Kicked', plr, 'imagine using DetectedWare | <obj>')
+					sendMessage('Kicked', plr, 'imagine being detected | <obj>')
 				end))
 			end
 		end,
