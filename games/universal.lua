@@ -5580,7 +5580,8 @@ run(function()
 		['princeofegypt'] = 'skid, gets kicked for fling attempt',
 		['Chill_baconr00'] = 'skid, highjump',
 		['PraiseDracc'] = 'known exploiter',
-		['jerry_plsnoban7'] = 'skid,fling and got kicked'
+		['jerry_plsnoban7'] = 'skid,fling and got kicked',
+		['jerry_plsnoban6'] = 'skid,fling and got kicked',
 	}
 	
 	local function playerAdded(plr)
