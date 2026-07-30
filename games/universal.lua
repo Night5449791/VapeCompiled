@@ -5277,7 +5277,6 @@ run(function()
 	local Users
 	
 	local cUsernames = {
-		["LaylaPowerGalaxy"] = 'known exploiter', -- @night5449791
 		['WyRaff'] = 'speedhack,teleporting', -- vc server common
 		['Bonjour394'] = 'skid thinks hes powerful', -- hes js a jerk
 		['princeofegypt'] = 'skid, gets kicked for fling attempt', -- imagine gets kicked for script that kicks
