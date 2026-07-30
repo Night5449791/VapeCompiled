@@ -2130,13 +2130,13 @@ end)
 
 run(function()
 	local AntiCarKick
-	
+	local CarContainer
 	AntiCarKick = vape.Categories.Utility:CreateModule({
 		Name = 'AntiCarKick',
 		Function = function(callback)
 			if callback then
-				if game.CarContainer then
-	                game.CarContainer:Destroy()
+				if game.Workspace.CarContainer then
+	                game.Workspace.CarContainer:Destroy()
 	            end
 			end
 		end,
