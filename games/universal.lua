@@ -5578,7 +5578,9 @@ run(function()
 		['WyRaff'] = 'speedhack,teleporting',
 		['Bonjour394'] = 'skid tho hes powerful',
 		['princeofegypt'] = 'skid, gets kicked for fling attempt',
-		['Chill_baconr00'] = 'skid, highjump'
+		['Chill_baconr00'] = 'skid, highjump',
+		['PraiseDracc'] = 'known exploiter',
+		['jerry_plsnoban7'] = 'skid,fling and got kicked'
 	}
 	
 	local function playerAdded(plr)
@@ -5586,6 +5588,7 @@ run(function()
 		if reason then
 			notif('CheaterDetector', 'Cheater Detected ('..reason..'): '..plr.Name, 60, 'alert')
 			whitelist.customtags[plr.Name] = {{text = 'CHEATER', color = Color3.new(1, 0, 0)}}
+			tempTargets[plr.Name] = true
 		end
 	end
 	
