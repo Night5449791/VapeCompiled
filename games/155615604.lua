@@ -2140,7 +2140,7 @@ run(function()
 	            end
 			end
 		end,
-		Tooltip = 'prevent those niggas from kicking u',
+		Tooltip = '(ONLY USE WHEN TARGETED FLING) prevent those niggas from kicking u',
 	})
 end)
 
