@@ -4828,11 +4828,7 @@ run(function()
 		Name = 'NoRender',
 		Function = function(callback)
 			if callback then
-				if callback == true then
-					game.RunService:Set3dRenderingEnabled(false)
-				else
-	            	game.RunService:Set3dRenderingEnabled(callback)
-				end
+				game.RunService:Set3dRenderingEnabled(false)
 			end
 		end,
 		Tooltip = 'disable rendering'
