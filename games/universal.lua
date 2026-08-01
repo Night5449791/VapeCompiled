@@ -5521,9 +5521,6 @@ run(function()
 		['BestCode_BaconThx'] = 'fling attempt, worst communist>',
 	}
 	
-	
-	notif('Loaded cheater DB,', os.date())
-	
 	local function playerAdded(plr)
 		local reason = (Users and table.find(Users.ListEnabled, tostring(plr.UserId))) or cUsernames[plr.Name]	
 		if reason then
