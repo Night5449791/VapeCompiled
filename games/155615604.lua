@@ -1590,10 +1590,9 @@ run(function()
 								local delta = (v.RootPart.Position - selfpos)
 								local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
 								if angle > (math.rad(AngleSlider.Value) / 2) then continue end
-								if lplr.Team == teams.Guards and v.Player.Team == teams.Inmates then
-									continue
-								end
-								-- if lplr.Team == teams.Guards and v.Player.Team == teams.Inmates and not v.Character:GetAttribute('Hostile') then
+								--if lplr.Team == teams.Guards and v.Player.Team == teams.Inmates and not v.Character:GetAttribute('Hostile') then
+								--	continue
+								--end
 	
 								table.insert(attacked, {
 									Entity = v,
