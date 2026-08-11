@@ -5516,8 +5516,7 @@ run(function()
 	-- we all code for shits lol
 	
 	local CheaterDetector
-	local Mode
-	local Profile
+	local cUsernames
 	local Users
 	
 	local cUsernames = {
