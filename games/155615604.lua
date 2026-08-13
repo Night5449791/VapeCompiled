@@ -2312,6 +2312,7 @@ end)
 run(function()
 	local AutoReset
 	local reqteam = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes"):FindFirstChild("RequestTeamChange")
+	local team = lplr.Team.Name
 	
 	AutoReset = vape.Categories.Utility:CreateModule({
 		Name = 'AutoReset',
@@ -2319,9 +2320,8 @@ run(function()
 			if callback then
 				-- i use kill notify cuz this would be simple 
 				AutoReset:Clean(vapeEvents.PlayerKill.Event:Connect(function()
-					local team = lplr.Team
 					reqteam:InvokeServer(
-						game:GetService("Teams"):FindFirstChild(.. team ..),
+						game:GetService("Teams"):FindFirstChild(team),
 						1
 					)
 				end))
