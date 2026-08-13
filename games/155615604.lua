@@ -2319,7 +2319,9 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local t = lplr.Team and game:GetService("Teams"):FindFirstChild(lplr.Team.Name)
-				if t then reqteam:InvokeServer(t, 1) end
+				lplr.Character.Died:Connect(function()
+					if t then reqteam:InvokeServer(t, 1) end
+				end)
 			end
 		end,
 		Tooltip = 'Automatically switch team when lplr is dead.'
