@@ -2138,7 +2138,7 @@ run(function()
 	    Name = 'ACReset',
 	    Function = function(callback)
 	        if callback then
-	            entity.isAlive:Connect(function()
+	            entitylib.isAlive:Connect(function()
 	                if not entitylib.isAlive then
 	                    local team = game:GetService("Players").LocalPlayer.Team
 	                    reqteam:InvokeServer("Neutral")
