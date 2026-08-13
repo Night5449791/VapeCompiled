@@ -2138,14 +2138,14 @@ run(function()
 	    Name = 'ACReset',
 	    Function = function(callback)
 	        if callback then
-	            entitylib:Connect(function()
+	            repeat
 	                if not entitylib.isAlive then
 	                    local team = game:GetService("Players").LocalPlayer.Team
 	                    reqteam:InvokeServer("Neutral")
 	                    wait(.5)
 	                    reqteam:InvokeServer(team)
 	                end
-	            end)
+	            until not callback
 	        end
 	    end,
 	    Tooltip = 'Automatically switch team when lplr is dead.'
