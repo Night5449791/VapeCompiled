@@ -2150,7 +2150,7 @@ run(function()
 	            if humanoid then
 	                humanoid.Died:Connect(function()
 	                    if t then
-	                        notif("ACReset", "You have died, switching team to " .. t.Name)
+	                        reqteam:InvokeServer("Neutral", 1)
 	                    end
 	                end)
 	            end
