@@ -2478,12 +2478,14 @@ run(function()
 	FastChange = vape.Categories.Utility:CreateModule({
 	    Name = 'FastChange',
 	    Function = function(callback)
-	        if callback then
-	            if ChooseTeam.Value == 'Neutral' then
+	        if callback then 
+	            if ChooseTeam.Value == 'Guards' then
 	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
-	            elseif ChooseTeam.Value == 'Guards' then
+	                wait(2)
 	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Guards"), 1)
 	            elseif ChooseTeam.Value == 'Inmates' then
+	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
+	                wait(2)
 	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Inmates"), 1)
 	            end
 	        end
@@ -2493,7 +2495,7 @@ run(function()
 	
 	ChooseTeam = FastChange:CreateDropdown({
 		Name = 'Team',
-		List = {'Neutral', 'Guards', 'Inmates'}
+		List = {'Guards', 'Inmates'}
 	})
 end)
 
