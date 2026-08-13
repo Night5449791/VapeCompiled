@@ -2322,7 +2322,7 @@ run(function()
 					local team = lplr.Team
 					reqteam:InvokeServer(
 						game:GetService("Teams"):FindFirstChild(team),
-						1
+						1 
 					)
 				end))
 			end
