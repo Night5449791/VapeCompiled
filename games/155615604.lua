@@ -2481,14 +2481,14 @@ run(function()
 	        if callback then 
 	            if ChooseTeam.Value == 'Guards' then
 	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
-	                wait(1)
+	                wait(.5)
 	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Guards"), 1)
 	                if lplr.Team == 'Neutral' then
 	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Inmates"), 1)
 	                end
 	            elseif ChooseTeam.Value == 'Inmates' then
 	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
-	                wait(1)
+	                wait(.5)
 	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Inmates"), 1)
 	                if lplr.Team == 'Neutral' then
 	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Guards"), 1)
