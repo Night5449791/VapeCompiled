@@ -2149,7 +2149,7 @@ run(function()
 			end
 		end,
 		Tooltip = 'Automatically switch team when lplr is dead.'
-	})
+	}) 
 end)
 
 run(function()
