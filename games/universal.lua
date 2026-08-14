@@ -5532,7 +5532,7 @@ run(function()
 		['centipedeinmyheads'] = 'aimbot, wallbanging', -- another saint member lol
 		['dannielll51'] = 'headsit rip', -- inspired, vape antiheadsit soon.
 		['JOJI12416'] = 'known exploiter', -- kerax if u wonder
-		['BestCode_BaconThx'] = 'fling attempt',  -- ac mod in .gg/prisonlife
+		['BestCode_BaconThx'] = 'fling attempt, ac mod',  -- ac mod in .gg/prisonlife
 		['RazhulanDeveloper'] = 'fling attempt, not a skid but he does that', -- respect, ac mod
 		--skids
 		['jbskjbg'] = 'platform stand exp',
