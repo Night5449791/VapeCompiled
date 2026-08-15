@@ -2563,6 +2563,7 @@ run(function()
 		['BetterCallMe788'] = 'fling',
 		['Avacad0731'] = 'noclipping',
 		['C0nquerons'] = 'Platform Stand exploit',
+		['goobyzoobytv'] = 'noclipping'
 	}
 	
 	local function playerAdded(plr)
