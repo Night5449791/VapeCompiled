@@ -1470,6 +1470,10 @@ run(function()
 end)
 
 run(function()
+	
+end)
+
+run(function()
 	local FastChange
 	local reqteam = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes"):FindFirstChild("RequestTeamChange")
 	local ChooseTeam
@@ -2563,7 +2567,8 @@ run(function()
 		['BetterCallMe788'] = 'fling',
 		['Avacad0731'] = 'noclipping',
 		['C0nquerons'] = 'Platform Stand exploit',
-		['goobyzoobytv'] = 'noclipping'
+		['goobyzoobytv'] = 'noclipping',
+		['Joni_8824'] = 'skid thought fling + noclip = op'
 	}
 	
 	local function playerAdded(plr)
