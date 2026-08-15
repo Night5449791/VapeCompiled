@@ -1048,7 +1048,7 @@ run(function()
 				if workspace:FindFirstChild('CarContainer') then
 					game.Workspace.CarContainer:Destroy()
 				end
-	            notif('AntiCarFling', 'Deleted all cars, reinject will cause bugs.', 5, 'alert')
+	            notif('AntiCarFling', 'Deleted all cars, rejoin to see cars.', 5, 'alert')
 				AntiCarFling:Toggle()
 			end
 		end,
