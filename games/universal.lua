@@ -5530,7 +5530,7 @@ run(function()
 	userjobid = CopyJobid:CreateTextBox({
 	    Name = 'Job Id to join (Same PlaceId)',
 	    Function = function(enter)
-	        serverhop(game.PlaceId, enter)
+	        serverHop(game.PlaceId, enter)
 	    end,
 	    Placeholder = 'insert jobid',
 	    Tooltip = 'Joins jobid'
