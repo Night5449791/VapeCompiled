@@ -2560,7 +2560,8 @@ run(function()
 		['djdjdd54321'] = 'skid, noclipping into walls',
 		['cnmjm222'] = 'skid, invis',
 		['oyeuser67'] = 'skid, speedhack',
-		['BetterCallMe788'] = 'skid, fling'
+		['BetterCallMe788'] = 'skid, fling',
+		['Avacad0731'] = 'skid,noclipping',
 	}
 	
 	local function playerAdded(plr)
