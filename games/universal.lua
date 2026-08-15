@@ -5540,7 +5540,6 @@ run(function()
 		['dannielll51'] = 'headsit rip', -- inspired, vape antiheadsit soon.
 		['Bonjour394'] = 'skid thinks hes powerful', -- hes js a jerk
 		['princeofegypt'] = 'skid, gets kicked for fling attempt', -- imagine gets kicked for script that kicks
-		['LaylaPowerGalaxy'] = 'test account for -- cap',
 	}
 	
 	local function playerAdded(plr)
