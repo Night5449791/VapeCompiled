@@ -5531,6 +5531,7 @@ run(function()
 	    Name = 'Job Id to join (Same PlaceId)',
 	    Function = function(enter)
 	        serverHop(game.PlaceId, enter)
+			enter = nil
 	    end,
 	    Placeholder = 'insert jobid',
 	    Tooltip = 'Joins jobid'
