@@ -2557,6 +2557,7 @@ run(function()
 		['bilinmez4095'] = 'skid, platform stand fly',
 		['djdjdd54321'] = 'skid, noclipping into walls',
 		['cnmjm222'] = 'skid, invis',
+		['oyeuser67'] = 'skid, speedhack'
 	}
 	
 	local function playerAdded(plr)
