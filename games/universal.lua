@@ -5541,6 +5541,7 @@ run(function()
 		['Bonjour394'] = 'skid thinks hes powerful', -- hes js a jerk
 		['princeofegypt'] = 'skid, gets kicked for fling attempt', -- imagine gets kicked for script that kicks
 		['bilinmez4095'] = 'skid, platform stand fly'
+		['djdjdd54321'] = 'skid, noclipping into walls'
 	}
 	
 	local function playerAdded(plr)
