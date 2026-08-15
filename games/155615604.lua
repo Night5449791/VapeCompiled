@@ -1470,10 +1470,6 @@ run(function()
 end)
 
 run(function()
-	
-end)
-
-run(function()
 	local FastChange
 	local reqteam = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes"):FindFirstChild("RequestTeamChange")
 	local ChooseTeam
