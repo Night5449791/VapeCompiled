@@ -2555,7 +2555,8 @@ run(function()
 		['Avacad0731'] = 'noclipping',
 		['C0nquerons'] = 'Platform Stand exploit',
 		['goobyzoobytv'] = 'noclipping',
-		['Joni_8824'] = 'skid thought fling + noclip = op'
+		['Joni_8824'] = 'skid thought fling + noclip = op',
+		['jaycomputing'] = 'skid using selenium larps and got kicked',
 	}
 	
 	local function playerAdded(plr)
