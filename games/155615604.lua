@@ -2391,7 +2391,11 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					sendMessage('Kicked', plr, 'skill issue | <obj>')
+					if plr == lplr.DisplayName then
+						sendMessage('Kicked', plr, '.ackick <obj>')
+					else
+						sendMessage('Kicked', plr, 'skill issue | <obj>')
+					end
 				end))
 			end
 		end,
