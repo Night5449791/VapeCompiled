@@ -1,5 +1,9 @@
-local run = function(func) func() end
-local cloneref = cloneref or function(obj) return obj end
+local run = function(func)
+	func()
+end
+local cloneref = cloneref or function(obj)
+	return obj
+end
 
 local playersService = cloneref(game:GetService('Players'))
 local inputService = cloneref(game:GetService('UserInputService'))
@@ -562,7 +566,7 @@ end)
 run(function()
 	local AutoCamel
 	
-	AutoCamel = vape.Categories.Minigames:CreateModule({
+	AutoCamel = vape.Categories.Utility:CreateModule({
 		Name = 'AutoCamel',
 		Function = function(callback)
 			if callback then
@@ -590,7 +594,7 @@ end)
 run(function()
 	local AutoCloudGrind
 	
-	AutoCloudGrind = vape.Categories.Minigames:CreateModule({
+	AutoCloudGrind = vape.Categories.Utility:CreateModule({
 		Name = 'AutoCloudGrind',
 		Function = function(callback)
 			if callback then
@@ -627,7 +631,7 @@ run(function()
 	local KeepList
 	local old
 	
-	AutoFish = vape.Categories.Minigames:CreateModule({
+	AutoFish = vape.Categories.Utility:CreateModule({
 		Name = 'AutoFish',
 		Function = function(callback)
 			if callback then
@@ -671,7 +675,7 @@ end)
 run(function()
 	local AutoPaint
 	
-	AutoPaint = vape.Categories.Minigames:CreateModule({
+	AutoPaint = vape.Categories.Utility:CreateModule({
 		Name = 'AutoPaint',
 		Function = function(callback)
 			if callback then

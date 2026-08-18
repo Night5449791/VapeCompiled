@@ -31,7 +31,7 @@ local entitylib = vape.Libraries.entity
 local whitelist = vape.Libraries.whitelist
 local targetinfo = vape.Libraries.targetinfo
 local sessioninfo = vape.Libraries.sessioninfo
-local getfontsize = vape.Libraries.getfontsize
+local getfontbounds = vape.Libraries.getfontbounds
 
 local pl = {}
 local Spring = {}
@@ -262,7 +262,7 @@ run(function()
 		if entity.NPC then return true end
 		if isFriend(entity.Player) then return false end
 		if not select(2, whitelist:get(entity.Player)) then return false end
-		if vape.Categories.Main.Options['Teams by server'].Enabled then
+		if vape.Settings.Modules.Options['Teams by server'].Enabled then
 			return lplr.Team ~= entity.Player.Team and entity.Player.Team ~= teams.Neutral
 		end
 		return true
@@ -388,7 +388,7 @@ run(function()
 	end
 
 	entitylib.getEntityColor = function(ent)
-		if not (ent.Player and vape.Categories.Main.Options['Use team color'].Enabled) then return end
+		if not (ent.Player and vape.Settings.Modules.Options['Use team color'].Enabled) then return end
 		if isFriend(ent.Player, true) then
 			return Color3.fromHSV(vape.Categories.Friends.Options['Friends color'].Hue, vape.Categories.Friends.Options['Friends color'].Sat, vape.Categories.Friends.Options['Friends color'].Value)
 		end
@@ -1040,23 +1040,6 @@ run(function()
 end)
 
 run(function()
-	local AntiCarFling
-	AntiCarFling = vape.Categories.Blatant:CreateModule({
-		Name = 'AntiCarFling',
-		Function = function(callback)
-			if callback then
-				if workspace:FindFirstChild('CarContainer') then
-					game.Workspace.CarContainer:Destroy()
-				end
-	            notif('AntiCarFling', 'Deleted all cars, rejoin to see cars.', 5, 'alert')
-				AntiCarFling:Toggle()
-			end
-		end,
-		Tooltip = 'just prevents u getting fucked by cars'
-	})
-end)
-
-run(function()
 	local AntiInvisible
 	local threads = {}
 	local whitelist = {
@@ -1466,37 +1449,6 @@ run(function()
 	VelocityCheck = AutoTaser:CreateToggle({
 		Name = 'Velocity Check',
 		Default = true
-	})
-end)
-
-run(function()
-	local FastChange
-	local reqteam = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes"):FindFirstChild("RequestTeamChange")
-	local ChooseTeam
-	
-	FastChange = vape.Categories.Blatant:CreateModule({
-	    Name = 'FastChange',
-	    Function = function(callback)
-	        if callback then 
-	            if ChooseTeam.Value == 'Guards' then
-	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
-	                wait(1)
-	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Guards"), 1)
-	                
-	            elseif ChooseTeam.Value == 'Inmates' then
-	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
-	                wait(1)
-	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Inmates"), 1)
-	            end
-	            FastChange:Toggle()
-	        end
-	    end,
-	    Tooltip = 'not-Automatically switch team'
-	})
-	
-	ChooseTeam = FastChange:CreateDropdown({
-		Name = 'Team',
-		List = {'Guards', 'Inmates'}
 	})
 end)
 
@@ -1996,7 +1948,6 @@ run(function()
 		Name = 'VehicleSpeed',
 		Function = function(callback)
 			if callback then
-				speed.Enabled = false
 				repeat
 					local seat = entitylib.isAlive and entitylib.character.Humanoid.SeatPart
 					if seat then
@@ -2018,10 +1969,9 @@ run(function()
 				until not VehicleSpeed.Enabled
 			else
 				table.clear(seats)
-				Speed.Enabled = true
 			end
 		end,
-		Tooltip = 'Increase vehicle (Will disable speed)'
+		Tooltip = 'Increase vehicle speed'
 	})
 	Speed = VehicleSpeed:CreateSlider({
 		Name = 'Speed',
@@ -2392,7 +2342,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					sendMessage('Kicked', plr, 'kicked <obj> | skill issue ')
+					sendMessage('Kicked', plr, 'kicked <obj> | skill issue')
 				end))
 			end
 		end,
@@ -2432,8 +2382,6 @@ end)
 run(function()
 	local CheatDetector
 	local AddTarget
-	local SendWebook
-	local Webhookurl
 	local overlap = OverlapParams.new()
 	overlap.CollisionGroup = 'Players'
 	overlap.FilterDescendantsInstances = {workspace.CarContainer, workspace.Doors}
@@ -2463,7 +2411,6 @@ run(function()
 			if callback then
 				CheatDetector:Clean(vapeEvents.CheatFlagged.Event:Connect(function(plr, flagname)
 					notif('CheatDetector', 'This player may be cheating! ('..flagname..'): '..plr.Name, 60, 'warning')
-	
 					if AddTarget.Enabled then
 						tempTargets[plr.Name] = true
 					end
@@ -2515,73 +2462,6 @@ run(function()
 		Name = 'Temporary Target',
 		Tooltip = 'Add temporary combat module priority for cheaters.',
 		Default = true
-	})
-end)
-
-run(function()
-	-- we all code for shits lol
-	
-	local CheaterDetector
-	local cUsernames
-	local Users
-	
-	local cUsernames = {
-		['WyRaff'] = 'speedhack,teleporting', -- vc server common
-		['PraiseDracc'] = 'known exploiter', -- since he is commonly in vc server
-		['jerry_plsnoban7'] = 'fling and got kicked', -- cringe
-		['jerry_plsnoban6'] = 'fling and got kicked',
-		['jerry_plsnoban5'] = 'fling and got kicked',
-		['rudeeis_ab'] = 'noclipping ahhh hack', -- saint member, dont they even use the same thing
-		['centipedeinmyheads'] = 'aimbot, wallbanging', -- another saint member lol
-		['JOJI12416'] = 'known exploiter', -- kerax if u wonder
-		['BestCode_BaconThx'] = 'fling attempt, ac mod',  -- ac mod in .gg/prisonlife
-		['RazhulanDeveloper'] = 'fling attempt, not a  but he does that', -- respect, ac mod
-		['SaintSkirr'] = 'fling attempt', -- not a big deal, why kerax just why
-		['DawnPulseVoid'] = 'known exploiter',
-		-- skids list
-		['jbskjbg'] = 'platform stand exp',
-		['1267_isevil'] = 'failed fling attempt',
-		['1987_isevil'] = 'failed fling attempt',
-		['HeyiamTheCooolest'] = 'slimed w/ vape v4',
-		['Chill_baconr00'] = 'highjump', --  using vape v4 from 7granddadpgn and cant beat me XD
-		['PrisonLife_UberDrive'] = 'vfly user', -- hes chilling added for vfly
-		['gcfhjfjf4'] = 'highjump . aimbot',
-		['dannielll51'] = 'headsit rip', -- inspired, vape antiheadsit soon.
-		['Bonjour394'] = 'skid thinks hes powerful', -- hes js a jerk
-		['princeofegypt'] = 'gets kicked for fling attempt', -- imagine gets kicked for script that kicks
-		['bilinmez4095'] = 'platform stand fly',
-		['djdjdd54321'] = 'noclipping into walls',
-		['cnmjm222'] = 'invis',
-		['oyeuser67'] = 'speedhack',
-		['BetterCallMe788'] = 'fling',
-		['Avacad0731'] = 'noclipping',
-		['C0nquerons'] = 'Platform Stand exploit',
-		['goobyzoobytv'] = 'noclipping',
-		['Joni_8824'] = 'skid thought fling + noclip = op',
-		['jaycomputing'] = 'skid using selenium larps and got kicked',
-		['tooodarl9'] = 'skid exploiter'
-	}
-	
-	local function playerAdded(plr)
-		local reason = (Users and table.find(Users.ListEnabled, tostring(plr.UserId))) or cUsernames[plr.Name]	
-		if reason then
-			notif('CheaterDetector', 'Cheater Detected ('..reason..'): '..plr.Name, 60, 'alert')
-			whitelist.customtags[plr.Name] = {{text = 'CHEATER', color = Color3.new(1, 0, 0)}}
-			tempTargets[plr.Name] = true
-		end
-	end
-	
-	CheaterDetector = vape.Categories.Utility:CreateModule({
-		Name = 'CheaterDetector',
-		Function = function(callback)
-			if callback then
-				CheaterDetector:Clean(playersService.PlayerAdded:Connect(playerAdded))
-				for _, v in playersService:GetPlayers() do
-					task.spawn(playerAdded, v)
-				end
-			end
-		end,
-		Tooltip = 'Detects people with history of cheating',
 	})
 end)
 
