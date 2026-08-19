@@ -2555,6 +2555,8 @@ run(function()
 		['Joni_8824'] = 'skid thought fling + noclip = op',
 		['jaycomputing'] = 'skid using selenium larps and got kicked',
 		['tooodarl9'] = 'skid exploiter',
+		['Henr45555455'] = 'platform stand fly',
+		['Marssimo_14'] = 'platform stand fly',
 	}
 	
 	local function playerAdded(plr)
