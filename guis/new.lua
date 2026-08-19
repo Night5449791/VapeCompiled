@@ -7252,8 +7252,8 @@ components = {
 	TextList = function(props, children, api)
 		local component = {
 			Index = getTableSize(api.Options),
-			List = props.Default or {},
-			ListEnabled = props.Default or {},
+			List = props.Default and table.clone(props.Default) or {},
+			ListEnabled = props.Default and table.clone(props.Default) or {},
 			Objects = {},
 			Type = 'TextList',
 			Window = {Visible = false}
@@ -7500,7 +7500,7 @@ components = {
 					props.Function()
 				end)
 		
-				table.insert(self.Objects, object)
+				table.insert(self.Objects, obj)
 			end
 		end
 		

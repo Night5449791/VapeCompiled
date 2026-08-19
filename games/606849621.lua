@@ -138,11 +138,13 @@ run(function()
 		if ent.NPC then return true end
 		if isFriend(ent.Player) then return false end
 		if not select(2, whitelist:get(ent.Player)) then return false end
+
 		if lplr.Team == teamsService.Police then
 			return ent.Player.Team ~= teamsService.Police
 		else
 			return ent.Player.Team == teamsService.Police
 		end
+
 		return true
 	end
 end)
@@ -332,13 +334,14 @@ run(function()
 	local arrests = sessioninfo:AddItem('Arrested')
 	local moneymade = sessioninfo:AddItem('Money Made', 0, toMoney, true)
 	local bounty = sessioninfo:AddItem('Bounty List', '', function()
-		local text, tab = '', workspace.MostWanted:FindFirstChild('Board', true)
-		tab = tab and tab:GetChildren() or {}
+		local text, holder = '', replicatedStorage.Bounty.Res.MostWanted:FindFirstChild('Board', true)
+		holder = holder and holder:GetChildren() or {}
 
-		for i, v in tab do
-			if v:IsA('Frame') then
-				local plrname = v:FindFirstChild('PlayerName', true)
-				local bounty = v:FindFirstChild('Bounty', true)
+		for _, obj in holder do
+			if obj:IsA('Frame') then
+				local plrname = obj:FindFirstChild('PlayerName', true)
+				local bounty = obj:FindFirstChild('Bounty', true)
+
 				if plrname and bounty then
 					text = text..'\n'..(plrname.Text..': '..bounty.Text:gsub(' Bounty', ''))
 				end
@@ -410,6 +413,14 @@ run(function()
 	local ProjectileRaycast = RaycastParams.new()
 	ProjectileRaycast.RespectCanCollide = true
 	
+	local function getMousePosition()
+		if inputService.TouchEnabled then
+			return gameCamera.ViewportSize / 2
+		end
+	
+		return inputService:GetMouseLocation()
+	end
+	
 	SilentAim = vape.Categories.Combat:CreateModule({
 		Name = 'SilentAim',
 		Function = function(callback)
@@ -420,7 +431,7 @@ run(function()
 			if callback then
 				Hooked = jb.GunController.TransformLocalMousePosition
 				jb.GunController.TransformLocalMousePosition = function(self, pos)
-					local ent = entitylib['Entity'..Mode.Value]({
+					local entity = entitylib['Entity'..Mode.Value]({
 						Range = Range.Value,
 						Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
 						Part = 'RootPart',
@@ -429,14 +440,15 @@ run(function()
 						NPCs = Target.NPCs.Enabled
 					})
 	
-					if ent then
+					if entity then
 						local item = jb.ItemSystemController:GetLocalEquipped()
-						if item and ((self.Tip.CFrame.Position - ent.RootPart.Position).Magnitude / (item.Config.BulletSpeed or 1000)) < item.BulletEmitter.LifeSpan then
-							ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character, workspace.Vehicles}
-							ProjectileRaycast.CollisionGroup = ent.RootPart.CollisionGroup
-							local calc = prediction.SolveTrajectory(self.Tip.CFrame.Position, item.Config.BulletSpeed or 1000, math.abs(item.BulletEmitter.GravityVector.Y), ent.RootPart.Position, Instant.Enabled and Vector3.zero or ent.RootPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
+						if item and ((self.Tip.CFrame.Position - entity.RootPart.Position).Magnitude / (item.Config.BulletSpeed or 1000)) < item.BulletEmitter.LifeSpan then
+							ProjectileRaycast.FilterDescendantsInstances = {gameCamera, entity.Character, workspace.Vehicles}
+							ProjectileRaycast.CollisionGroup = entity.RootPart.CollisionGroup
+	
+							local calc = prediction.SolveTrajectory(self.Tip.CFrame.Position, item.Config.BulletSpeed or 1000, math.abs(item.BulletEmitter.GravityVector.Y), entity.RootPart.Position, Instant.Enabled and Vector3.zero or entity.RootPart.Velocity, workspace.Gravity, entity.HipHeight, nil, ProjectileRaycast)
 							if calc then
-								targetinfo.Targets[ent] = tick() + 1
+								targetinfo.Targets[entity] = tick() + 1
 								return calc
 							end
 						end
@@ -447,7 +459,7 @@ run(function()
 	
 				repeat
 					if CircleObject then
-						CircleObject.Position = inputService:GetMouseLocation()
+						CircleObject.Position = getMousePosition()
 					end
 	
 					if Instant.Enabled then
@@ -465,7 +477,9 @@ run(function()
 		end,
 		Tooltip = 'Silently adjusts your aim towards the enemy'
 	})
-	Target = SilentAim:CreateTargets({Players = true})
+	Target = SilentAim:CreateTargets({
+		Players = true
+	})
 	Mode = SilentAim:CreateDropdown({
 		Name = 'Mode',
 		List = {'Mouse', 'Position'},
@@ -547,7 +561,9 @@ run(function()
 		Darker = true,
 		Visible = false
 	})
-	Instant = SilentAim:CreateToggle({Name = 'Hitscan Bullets'})
+	Instant = SilentAim:CreateToggle({
+		Name = 'Hitscan Bullets'
+	})
 end)
 
 run(function()
@@ -651,10 +667,6 @@ run(function()
 						local item = jb.ItemSystemController:GetLocalEquipped()
 						if item and item.BulletEmitter and item.Model then
 							for _, car in getVehiclesNear() do
-								if (car:GetAttribute('VehicleTireHealth') or 10) <= 0 then
-									continue
-								end
-	
 								if (delays[car] or 0) > os.clock() then
 									continue
 								end
@@ -715,19 +727,24 @@ run(function()
 					local item = jb.ItemSystemController:GetLocalEquipped()
 					item = item and item.__ClassName == 'Taser' or nil
 					if not HandCheck.Enabled or item then
-						local ent = entitylib.EntityPosition({
+						local entities = entitylib.AllPosition({
 							Players = true,
 							Part = 'RootPart',
 							Range = 50
 						})
 	
-						if ent and isIllegal(ent) and not isArrested(ent.Player.Name) and cooldown < os.clock() then
-							if item then
-								jb:FireServer('TaseReplicate', ent.Head.Position)
-							end
+						if cooldown < os.clock() then
+							for _, entity in entities do
+								if isIllegal(entity) and not isArrested(entity.Player.Name) then
+									if item then
+										jb:FireServer('TaseReplicate', entity.Head.Position)
+									end
 	
-							jb:FireServer('Tase', ent.Humanoid, ent.Head, ent.Head.Position)
-							cooldown = os.clock() + 10
+									jb:FireServer('Tase', entity.Humanoid, entity.Head, entity.Head.Position)
+									cooldown = os.clock() + 10
+									break
+								end
+							end
 						end
 					end
 	
@@ -755,22 +772,21 @@ run(function()
 end)
 
 run(function()
-	local nitrotable = debug.getupvalue(jb.VehicleController.NitroShopVisible, 1)
 	local oldnitro
 	
 	InfNitro = vape.Categories.Utility:CreateModule({
 		Name = 'InfiniteNitro',
 		Function = function(callback)
 			if callback then
-				oldnitro = nitrotable.Nitro
+				oldnitro = jb.VehicleController.nitroState.Nitro
 				jb.VehicleController.updateSpdBarRatio(1)
 	
 				repeat
-					nitrotable.Nitro = 250
+					jb.VehicleController.nitroState.Nitro = 250
 					task.wait(0.1)
 				until not InfNitro.Enabled
 			else
-				nitrotable.Nitro = oldnitro
+				jb.VehicleController.nitroState.Nitro = oldnitro
 				jb.VehicleController.updateSpdBarRatio(oldnitro / 250)
 			end
 		end,
