@@ -1626,7 +1626,8 @@ run(function()
 							Part = 'RootPart',
 							Players = Targets.Players.Enabled,
 							NPCs = Targets.NPCs.Enabled,
-							Limit = Max.Value
+							Limit = Max.Value,
+							AttackCheck = true
 						})
 	
 						if #plrs > 0 then
@@ -2459,7 +2460,8 @@ run(function()
 				CheatDetector:Clean(vapeEvents.CheatFlagged.Event:Connect(function(plr, flagname)
 					notif('CheatDetector', 'This player may be cheating! ('..flagname..'): '..plr.Name, 60, 'warning')
 					if CopyUserBoard.Enabled then
-						setclipboard('["' .. plr.Name .. '"] = "' .. flagname .. '"')
+						setclipboard('["' .. plr.Name .. '"] = "' .. flagname .. '",')
+						writefile("newvape/cheater/" .. plr.Name, '["' .. plr.Name .. '"] = "' .. flagname .. '",')
 					end
 	
 					if AddTarget.Enabled then
@@ -2570,6 +2572,8 @@ run(function()
 		['X4AY67'] = 'skid exploiter',
 		['trervoTDJ'] = 'aimbotting',
 		['Pedro9Henrique2000'] = 'phase/noclip',
+		["faizan1111789"] = "speed",
+		['juanpro231ew'] = "invalid state Swimming",
 	}
 	
 	local function playerAdded(plr)
