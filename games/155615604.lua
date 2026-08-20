@@ -2527,7 +2527,7 @@ run(function()
 	-- we all code for shits lol
 	
 	local CheaterDetector
-	local cUsernames == vape.Libraries.cheaterdb
+	local cUsernames = vape.Libraries.cheaterdb
 	local Users
 	
 	local function playerAdded(plr)
