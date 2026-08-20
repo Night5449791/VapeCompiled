@@ -2461,7 +2461,7 @@ run(function()
 					notif('CheatDetector', 'This player may be cheating! ('..flagname..'): '..plr.Name, 60, 'warning')
 					if CopyUserBoard.Enabled then
 						setclipboard('["' .. plr.Name .. '"] = "' .. flagname .. '",')
-						writefile("newvape/cheater/" .. plr.Name, '["' .. plr.Name .. '"] = "' .. flagname .. '",')
+						writefile("newvape/cheater/" .. plr.Name .. "-" .. flagname, '["' .. plr.Name .. '"] = "' .. flagname .. '",')
 					end
 	
 					if AddTarget.Enabled then
