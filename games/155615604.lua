@@ -2562,7 +2562,7 @@ run(function()
 		['Avacad0731'] = 'phase/noclip',
 		['C0nquerons'] = 'Platform Stand exploit',
 		['goobyzoobytv'] = 'phase/noclip',
-		['Joni_8824'] = 'skid thought fling + noclip = op',
+		['Joni_8824'] = 'phase/noclip',
 		['jaycomputing'] = 'skid using selenium larps and got kicked',
 		['tooodarl9'] = 'skid exploiter',
 		['Henr45555455'] = 'invalid state Platform Stand',
