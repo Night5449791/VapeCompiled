@@ -2560,6 +2560,8 @@ run(function()
 		['boy_cantot2'] = 'platform stand exploit',
 		['killerdoy372bro'] = 'invalid animation',
 		['X4AY67'] = 'skid exploiter',
+		['trervoTDJ'] = 'skid aimbotter',
+		['Pedro9Henrique2000'] = 'skid noclipping',
 	}
 	
 	local function playerAdded(plr)
