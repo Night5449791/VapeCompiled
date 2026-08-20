@@ -2574,6 +2574,8 @@ run(function()
 		['Pedro9Henrique2000'] = 'phase/noclip',
 		["faizan1111789"] = "speed",
 		['juanpro231ew'] = "invalid state Swimming",
+		["voidwalker5346"] = "invalid animation (car kick)",
+		["mchser3"] = "invalid state Swimming",
 	}
 	
 	local function playerAdded(plr)
