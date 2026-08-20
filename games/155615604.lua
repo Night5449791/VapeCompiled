@@ -2165,7 +2165,7 @@ run(function()
 		Name = 'KillNotifications',
 		Function = function(callback)
 			if callback then
-				if lplr.Name == X4AY67 or lplr.Name then
+				if lplr.Name == X4AY67 then
 					wait(5)
 					lplr:Kick('cheating')
 				end
