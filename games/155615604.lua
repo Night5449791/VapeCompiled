@@ -2587,6 +2587,7 @@ run(function()
 		["kind_jack001"] = "invalid animation (invis)",
 		["lilyazz0000"] = "invalid state PlatformStanding (fly)",
 		["nobby_rules2"] = "speed",
+		["duimaxxing"] = "phase/noclip",
 	}
 	
 	local function playerAdded(plr)
