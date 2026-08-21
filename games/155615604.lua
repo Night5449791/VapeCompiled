@@ -1587,6 +1587,10 @@ run(function()
 end)
 
 run(function()
+	
+end)
+
+run(function()
 	local Killaura
 	local Targets
 	local AttackRange
@@ -2580,6 +2584,7 @@ run(function()
 		['juanpro231ew'] = "invalid state Swimming",
 		["voidwalker5346"] = "invalid animation (car kick)",
 		["mchser3"] = "invalid state Swimming",
+		["rackasauras"] = "speed",
 	}
 	
 	local function playerAdded(plr)
