@@ -2584,6 +2584,7 @@ run(function()
 		["veggeta38372737"] = "kerax user",
 		["Thacosmick_2"] = "invalid state Swimming",
 		["Unicornpoop1239508"] = "speed",
+		["kind_jack001"] = "invalid animation (invis)",
 	}
 	
 	local function playerAdded(plr)
