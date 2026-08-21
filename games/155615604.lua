@@ -2582,6 +2582,7 @@ run(function()
 		["rackasauras"] = "speed",
 		['centipedeinmyheads'] = 'aimbot, wallbanging', -- another saint member lol
 		["ang5454"] = "highjump",
+		['rackasauras'] = 'speed',
 	}
 	
 	local function playerAdded(plr)
