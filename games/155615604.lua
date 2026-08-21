@@ -2587,6 +2587,7 @@ run(function()
 		["SyntaxK3v"] = "speed",
 		["veggeta38372737"] = "kerax user",
 		["Thacosmick_2"] = "invalid state Swimming",
+		["Unicornpoop1239508"] = "speed",
 	}
 	
 	local function playerAdded(plr)
