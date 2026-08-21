@@ -1587,10 +1587,6 @@ run(function()
 end)
 
 run(function()
-	
-end)
-
-run(function()
 	local Killaura
 	local Targets
 	local AttackRange
