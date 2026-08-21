@@ -2166,9 +2166,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				KillNotifications:Clean(vapeEvents.PlayerKill.Event:Connect(function(killer, victim)
-					if lplr.Name == X4AY67 then
-						lplr:kick("cheating")
-					end
+					lplr:kick("cheating")
 					if victim == lplr.Name and killer ~= lplr.Name then
 						notif('KillNotifications', killer..' killed you!', 5)
 					end
