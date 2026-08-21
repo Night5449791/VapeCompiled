@@ -2377,6 +2377,7 @@ run(function()
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 			if textChatService:CanUserChatAsync(lplr.UserId) then
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets['So close'])
 			else
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets[message] or Presets['So close'])
 			end
