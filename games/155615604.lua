@@ -2576,7 +2576,7 @@ run(function()
 		["voidwalker5346"] = "invalid animation (car kick)",
 		["mchser3"] = "invalid state Swimming",
 		["rackasauras"] = "speed",
-		['centipedeinmyheads'] = 'aimbot, wallbanging', -- another saint member lol
+		['centipedeinmyheads'] = 'aimbot', -- another saint member lol
 		["ang5454"] = "highjump",
 		['rackasauras'] = 'speed',
 		["dobys149"] = "phase/noclip",
