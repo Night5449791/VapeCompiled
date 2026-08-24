@@ -884,7 +884,7 @@ run(function()
 				repeat
 					local cuffs = InvTracker.Inventories[lplr].Handcuffs
 	
-					if lplr.Team == teamsService.Police and cuffs then
+					if lplr.Team == teams.Police and cuffs then
 						local serverPos = entitylib.character.Humanoid:FindFirstChild('HumanoidUnloadServerPosition')
 						local vehicle
 						local target
@@ -1279,7 +1279,41 @@ run(function()
 end)
 
 run(function()
-	LazerGodmode = vape.Categories.Blatant:CreateModule({Name = 'LazerGodmode'})
+	local modified = {}
+	local overlapCheck = OverlapParams.new()
+	
+	LazerGodmode = vape.Categories.Blatant:CreateModule({
+		Name = 'LazerGodmode',
+		Function = function(callback)
+			if callback then
+				LazerGodmode:Clean(runService.PreSimulation:Connect(function()
+					if entitylib.isAlive then
+						overlapCheck.FilterDescendantsInstances = {gameCamera, lplr.Character}
+	
+						local parts = workspace:GetPartBoundsInRadius(entitylib.character.RootPart.Position, 10, overlapCheck)
+						for _, part in parts do
+							modified[part] = true
+							part.CanTouch = false
+						end
+	
+						for part in modified do
+							if not table.find(parts, part) then
+								modified[part] = nil
+								part.CanTouch = true
+							end
+						end
+					end
+				end))
+			else
+				for inst in modified do
+					inst.CanTouch = true
+				end
+	
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Allow you to ignore lazers found in the jewelry store'
+	})
 end)
 
 run(function()
@@ -1316,10 +1350,33 @@ run(function()
 end)
 
 run(function()
+	local old
+	local await
+	
 	vape.Categories.Utility:CreateModule({
 		Name = 'InstantAction',
 		Function = function(callback)
-			debug.setconstant(jb.CircleAction.Press, 3, callback and 'Timeda' or 'Timed')
+			if callback then
+				old = hookfunction(jb.CircleAction.Press, function(...)
+					local action = jb.CircleAction.Spec
+					if action and action.Timed and not (action.ReleaseCallback or await) then
+						local old = action.Timed
+	
+						action.Timed = false
+						await = task.defer(function()
+							action.Timed = old
+							await = nil
+						end)
+					end
+	
+					return old(...)
+				end)
+			else
+				if old then
+					restorefunction(jb.CircleAction.Press)
+					old = nil
+				end
+			end
 		end,
 		Tooltip = 'Allows you to instantly complete ProximityPrompt actions'
 	})
@@ -1346,4 +1403,131 @@ run(function()
 		end,
 		Tooltip = 'Automatically heal damage with consumables.'
 	})
+end)
+
+run(function()
+	local AutoHotbar
+	local SortList = {Police = {}, Prisoner = {}}
+	
+	local function DoSorting()
+		local collected = {}
+		for _, item in InvTracker.Inventories[lplr] do
+			table.insert(collected, {
+				Tool = item,
+				Slot = item:GetAttribute('DisplayOrder') or 0
+			})
+		end
+	
+		local list = SortList[lplr.Team == teams.Police and 'Police' or 'Prisoner']
+		table.sort(collected, function(a, b)
+			return (list[a.Tool.name] or 15 + a.Slot) < (list[b.Tool.name] or 15 + b.Slot)
+		end)
+	
+		for index, item in collected do
+			item.Tool:SetAttribute('DisplayOrder', index)
+			table.clear(item)
+		end
+	
+		table.clear(collected)
+	end
+	
+	AutoHotbar = vape.Categories.Inventory:CreateModule({
+		Name = 'AutoHotbar',
+		Function = function(callback)
+			if callback then
+				AutoHotbar:Clean(vapeEvents.ItemAdded.Event:Connect(DoSorting))
+				task.spawn(DoSorting)
+			end
+		end,
+		Tooltip = 'Automatically sort hotbar entries'
+	})
+	
+	for _, team in {'Prisoner', 'Police'} do
+		AutoHotbar:CreateTextList({
+			Name = team..' Pickups',
+			Default = team == 'Prisoner' and {'1/AK47', '2/Shotgun', '3/Pistol'} or {'1/AK47', '2/Shotgun', '3/Pistol', '4/Taser', '5/Taser', '6/RoadSpike'},
+			Placeholder = 'priority/item',
+			Function = function(list)
+				table.clear(SortList[team])
+	
+				for _, entry in list do
+					local data = entry:split('/')
+					local priority = tonumber(data[1]) or 999
+					SortList[team][data[2]] = priority
+				end
+			end
+		})
+	end
+end)
+
+run(function()
+	local AutoPickup
+	local Lists = {}
+	local Regions = {}
+	local pickupList = {Police = {}, Prisoner = {}}
+	local overlapParams = OverlapParams.new()
+	overlapParams.FilterType = Enum.RaycastFilterType.Include
+	overlapParams.MaxParts = 1
+	
+	local function doesPlayerOwn(item)
+		local items = lplr:FindFirstChild('Items')
+		return items and items:FindFirstChild(item) or false
+	end
+	
+	AutoPickup = vape.Categories.Inventory:CreateModule({
+		Name = 'AutoPickup',
+		Function = function(callback)
+			if callback then
+				Regions = collectionService:GetTagged('GunShopRegion')
+				overlapParams.FilterDescendantsInstances = Regions
+	
+				AutoPickup:Clean(collectionService:GetInstanceAddedSignal('GunShopRegion'):Connect(function(obj)
+					table.insert(Regions, obj)
+					overlapParams.FilterDescendantsInstances = Regions
+				end))
+	
+				AutoPickup:Clean(collectionService:GetInstanceRemovedSignal('GunShopRegion'):Connect(function(obj)
+					local index = table.find(Regions, obj)
+					if index then
+						table.remove(Regions, index)
+					end
+				end))
+	
+				repeat
+					if entitylib.isAlive then
+						local parts = workspace:GetPartsInPart(entitylib.character.RootPart, overlapParams)
+						if #parts > 0 then
+							for _, entry in pickupList[lplr.Team == teams.Police and 'Police' or 'Prisoner'] do
+								if not InvTracker.Inventories[lplr][entry] and doesPlayerOwn(entry) then
+									jb:FireServer('EquipItem', entry, nil)
+								end
+							end
+	
+							task.wait(0.2)
+						end
+					end
+	
+					task.wait(0.05)
+				until not AutoPickup.Enabled
+			else
+				table.clear(Regions)
+			end
+		end,
+		Tooltip = 'Automatically grab item pickups'
+	})
+	
+	for _, team in {'Prisoner', 'Police'} do
+		AutoPickup:CreateTextList({
+			Name = team..' Pickups',
+			Default = team == 'Prisoner' and {'AK47', 'Shotgun', 'Pistol'} or {'AK47', 'Shotgun'},
+			Placeholder = 'item',
+			Function = function(list)
+				table.clear(pickupList[team])
+	
+				for _, entry in list do
+					table.insert(pickupList[team], entry)
+				end
+			end
+		})
+	end
 end)
