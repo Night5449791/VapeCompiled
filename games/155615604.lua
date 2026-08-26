@@ -1070,9 +1070,7 @@ run(function()
 			anim:Play()
 	
 			BannedAnim:Clean(anim.Stopped:Connect(function()
-				if currentanim == anim then
-					anim:Play()
-				end
+				notif('BannedAnim', 'u died lol', 5, 'warning')
 			end))
 		else
 			notif('AnimationPlayer', 'failed to load anim : '..(res or 'invalid animation id'), 5, 'warning')
