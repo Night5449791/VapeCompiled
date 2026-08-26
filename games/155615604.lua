@@ -1064,7 +1064,7 @@ run(function()
 				animobject.AnimationId = 'rbxassetid://148840371' or "rbxassetid://5918726674"
 	
 				if entitylib.isAlive then
-					lplr.Character:LoadAnimation(animobject)
+					lplr.Character:FindFirstChildWhichIsA("Humanoid"):LoadAnimation(animobject)
 				end
 			end
 		end,
