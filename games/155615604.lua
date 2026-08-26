@@ -1083,6 +1083,8 @@ run(function()
 		Name = 'BannedAnimationPlayer',
 		Function = function(callback)
 			if callback then
+				BannedAnimationPlayer:Toggle()
+	
 				animobject = Instance.new('Animation')
 				animobject.AnimationId = 'rbxassetid://148840371' or "rbxassetid://5918726674"
 	
