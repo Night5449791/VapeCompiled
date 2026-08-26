@@ -1067,9 +1067,7 @@ run(function()
 	
 		if suc then
 			local currentanim = anim
-			anim.Priority = Enum.AnimationPriority[Priority.Value]
 			anim:Play()
-			anim:AdjustSpeed(Speed.Value)
 	
 			BannedAnimationPlayer:Clean(anim.Stopped:Connect(function()
 				if currentanim == anim then
