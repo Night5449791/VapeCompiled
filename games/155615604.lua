@@ -1477,7 +1477,7 @@ run(function()
 	local BannedAnim
 	
 	local function playAnimation(char)
-	    anim = char.Humanoid.Animator:LoadAnimation(animobject)
+	    anim = char.Humanoid:LoadAnimation(animobject)
 	end
 	
 	BannedAnim = vape.Categories.Blatant:CreateModule({
