@@ -14,7 +14,7 @@ end
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -676,7 +676,7 @@ do
 	end
 end
 
-for _, v in {'Reach', 'TriggerBot', 'AntiFall', 'Desync', 'HitBoxes', 'Invisible', 'Jesus', 'MouseTP', 'Spider', 'SpinBot', 'Swim', 'TargetStrafe', 'AntiRagdoll', 'Disabler', 'StateSpoofer', 'Parkour', 'SafeWalk', 'MurderMystery'} do
+for _, v in {'Reach', 'TriggerBot', 'AntiFall', 'Desync', 'HitBoxes', 'Invisible', 'Jesus', 'MouseTP', 'Spider', 'Speed', 'SpinBot', 'Swim', 'TargetStrafe', 'AntiRagdoll', 'Disabler', 'StateSpoofer', 'Parkour', 'SafeWalk', 'MurderMystery'} do
 	vape:Remove(v)
 end
 
@@ -947,6 +947,8 @@ end)
 local Fly
 local LongJump
 run(function()
+	local UpKey
+	local DownKey
 	local Value
 	local VerticalValue
 	local up, down = 0, 0
@@ -960,23 +962,31 @@ run(function()
 				end))
 
 				up, down = 0, 0
-				for _, v in {'InputBegan', 'InputEnded'} do
-					Fly:Clean(inputService[v]:Connect(function(input)
-						if not inputService:GetFocusedTextBox() then
-							if input.KeyCode == Enum.KeyCode.Space then
-								up = v == 'InputBegan' and 1 or 0
-							elseif input.KeyCode == Enum.KeyCode.LeftAlt then
-								down = v == 'InputBegan' and -1 or 0
-							end
-						end
-					end))
-				end
+				Fly:Clean(UpKey.Triggered:Connect(function(isDown)
+					up = isDown and 1 or 0
+				end))
+
+				Fly:Clean(DownKey.Triggered:Connect(function(isDown)
+					down = isDown and -1 or 0
+				end))
 			end
 		end,
 		ExtraText = function()
 			return 'Redliner'
 		end,
 		Tooltip = 'Makes you go zoom.'
+	})
+	UpKey = Fly:CreateBind({
+		Name = 'Up Key',
+		Default = {'Space'},
+		Hold = true,
+		Tooltip = 'Keybind to fly upwards'
+	})
+	DownKey = Fly:CreateBind({
+		Name = 'Down Key',
+		Default = {'LeftAlt'},
+		Hold = true,
+		Tooltip = 'Keybind to fly downwards'
 	})
 	--[[Value = Fly:CreateSlider({
 		Name = 'Speed',
@@ -1218,7 +1228,7 @@ run(function()
 					box.Size = Vector3.new(3, 5, 3)
 					box.CFrame = CFrame.new(0, -0.5, 0)
 					box.ZIndex = 0
-					box.Parent = vape.gui
+					box.Parent = vape.holder
 					Boxes[i] = box
 				end
 			else

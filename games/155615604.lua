@@ -2170,6 +2170,28 @@ run(function()
 end)
 
 run(function()
+	local CameraPhase
+	local old
+	
+	CameraPhase = vape.Categories.Render:CreateModule({
+		Name = 'CameraPhase',
+		Function = function(callback)
+			if callback then
+				local popper = require(lplr.PlayerScripts.PlayerModule.CameraModule.ZoomController.Popper)
+				old = debug.getupvalue(debug.getupvalue(popper, 3), 7)
+				debug.setconstant(old, 16, 0)
+			else
+				if old then
+					debug.setconstant(old, 16, 0.25)
+					old = nil
+				end
+			end
+		end,
+		Tooltip = 'Allow the camera to phase through walls.'
+	})
+end)
+
+run(function()
 	local KillNotifications
 	
 	KillNotifications = vape.Categories.Render:CreateModule({
@@ -2329,8 +2351,32 @@ run(function()
 						end
 					end)
 				end)
+	
+				-- reimplementation of playsound to get rid of the bad error
+				oldplaysound = hookfunction(pl.PlaySound, function(sound)
+					local sound = debug.getupvalue(pl.Shoot, 1)
+					sound = sound and sound:FindFirstChild('Handle')
+					sound = sound and sound:FindFirstChild(sound)
+	
+					if sound then
+						local clone = sound:Clone()
+						clone.Parent = sound.Parent
+						clone:Play()
+	
+						task.delay(5, clone.Destroy, clone)
+					end
+				end)
 			else
 				TracerHook:Remove('AutoReload')
+				if oldplaysound then
+					if restorefunction then
+						restorefunction(pl.PlaySound)
+					else
+						hookfunction(pl.PlaySound, oldplaysound)
+					end
+	
+					oldplaysound = nil
+				end
 			end
 		end,
 		Tooltip = 'Automatically reload after reaching 0 bullets'
@@ -2363,7 +2409,6 @@ run(function()
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 			if textChatService:CanUserChatAsync(lplr.UserId) then
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
-				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets['So close'])
 			else
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets[message] or Presets['So close'])
 			end
@@ -2377,7 +2422,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					sendMessage('Kicked', plr, 'kicked <obj>| skill issue')
+					sendMessage('Kicked', plr, 'skill issue cheat | <obj>')
 				end))
 			end
 		end,
@@ -2412,7 +2457,6 @@ run(function()
 			end
 		end
 	end)
-	
 end)
 
 run(function()
@@ -2511,25 +2555,26 @@ run(function()
 	local cUsernames = {
 		['WyRaff'] = 'speedhack,teleporting', -- vc server common
 		['PraiseDracc'] = 'known exploiter', -- since he is commonly in vc server
-		['jerry_plsnoban7'] = 'fling attempts', -- cringe
-		['jerry_plsnoban6'] = 'fling attempts',
-		['jerry_plsnoban5'] = 'fling attempts',
+		['jerry_plsnoban7'] = 'known exploiter', -- cringe
+		['jerry_plsnoban6'] = 'known exploiter',
+		['jerry_plsnoban5'] = 'known exploiter',
 		['rudeeis_ab'] = 'phase/noclip ahhh hack', -- saint member, dont they even use the same thing
 		['JOJI12416'] = 'known exploiter', -- kerax if u wonder
 		['DawnPulseVoid'] = 'known exploiter',
 		['BestCode_BaconThx']= 'known exploiter',   -- ac mod in .gg/prisonlife
 		['RazhulanDeveloper'] = 'known exploiter', -- respect, ac mod
-		['SaintSkirr'] = 'fling attempt', -- not a big deal, why kerax just why
+		['SaintSkirr'] = 'known exploiter', -- not a big deal, why kerax just why
 		-- skids list
 		['jbskjbg'] = 'invalid state Platform Stand exp',
 		['1267_isevil'] = 'failed fling attempt',
 		['1987_isevil'] = 'failed fling attempt',
 		['HeyiamTheCooolest'] = 'skid exploiter',
-		['Chill_baconr00'] = 'highjump', --  using vape v4 from 7granddadpgn and cant beat me XD
+		['Chill_baconr00'] = 'highjump', --  using vape v4 from Night5449791 and cant beat me XD
 		['gcfhjfjf4'] = 'highjump, aimbot',
 		['dannielll51'] = 'headsit exploit', -- inspired, vape antiheadsit soon.
 		['Bonjour394'] = 'skid exploiter', -- hes js a jerk
 		['princeofegypt'] = 'gets kicked for fling attempt', -- imagine gets kicked for script that kicks
+		['centipedeinmyheads'] = 'aimbot', -- another saint member lol
 		['bilinmez4095'] = 'invalid state Platform Stand',
 		['djdjdd54321'] = 'phase/noclip into walls',
 		['cnmjm222'] = 'invisible',
@@ -2552,7 +2597,6 @@ run(function()
 		["voidwalker5346"] = "invalid animation (car kick)",
 		["mchser3"] = "invalid state Swimming",
 		["rackasauras"] = "speed",
-		['centipedeinmyheads'] = 'aimbot', -- another saint member lol
 		["ang5454"] = "highjump",
 		['rackasauras'] = 'speed',
 		["dobys149"] = "phase/noclip",
@@ -2586,6 +2630,41 @@ run(function()
 			end
 		end,
 		Tooltip = 'Detects people with history of cheating',
+	})
+end)
+
+run(function()
+	local Disabler
+	local old
+	
+	local function EntityAdded(entity)
+		task.defer(function()
+			old = getconnections(entity.Head:GetPropertyChangedSignal('CanCollide'))[1]
+			if old then
+				old:Disable()
+			end
+		end)
+	end
+	
+	Disabler = vape.Categories.Utility:CreateModule({
+		Name = 'Disabler',
+		Function = function(callback)
+			if callback then
+				Disabler:Clean(entitylib.Events.LocalAdded:Connect(EntityAdded))
+				if entitylib.isAlive then
+					task.spawn(EntityAdded, entitylib.character)
+				end
+			else
+				if old then
+					old:Enable()
+					old = nil
+				end
+			end
+		end,
+		Tooltip = 'Fixes phase with Character mode.',
+		ExtraText = function()
+			return 'Phase'
+		end
 	})
 end)
 
@@ -2729,7 +2808,7 @@ run(function()
 			for _, entry in list do
 				local data = entry:split('/')
 				local priority = tonumber(data[1]) or 999
-				SortList[data[2]] = priority
+				SortList[data[2] or ''] = priority
 			end
 		end
 	})
@@ -2827,6 +2906,150 @@ run(function()
 			end
 		})
 	end
+end)
+
+run(function()
+	local BulletTracers
+	local Material
+	local Color
+	local Lifetime
+	local Fade
+	local DrawingToggle
+	local drawingobjs = {}
+	
+	BulletTracers = vape.Legit:CreateModule({
+		Name = 'BulletTracers',
+		Function = function(callback)
+			if callback then
+				TracerHook:Add('BulletTracers', function(...)
+					local origin, dir = ...
+					if vtool then
+						origin = vtool.Muzzle.Position
+					end
+	
+					local velocity = CFrame.lookAt(origin, dir).LookVector * 1000
+					if DrawingToggle.Enabled then
+						local obj = Drawing.new('Line')
+						obj.Thickness = 2
+						obj.Color = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+						drawingobjs[obj] = {origin, origin + velocity, os.clock()}
+						task.delay(Lifetime.Value, function()
+							drawingobjs[obj] = nil
+							obj.Visible = false
+							obj:Remove()
+						end)
+					else
+						local obj = Instance.new('Part')
+						obj.Size = Vector3.new(0.1, 0.1, velocity.Magnitude)
+						obj.CFrame = CFrame.lookAt(origin + (velocity / 2), origin + velocity)
+						obj.CanCollide = false
+						obj.CanQuery = false
+						obj.Anchored = true
+						obj.Material = Enum.Material[Material.Value]
+						obj.Color = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+						obj.Transparency = 1 - Color.Opacity
+						obj.Parent = workspace
+						if Fade.Enabled then
+							local tween = tweenService:Create(obj, TweenInfo.new(Lifetime.Value), {
+								Transparency = 1
+							})
+							tween.Completed:Connect(function()
+								tween:Destroy()
+							end)
+							tween:Play()
+						end
+	
+						task.delay(Lifetime.Value, obj.Destroy, obj)
+					end
+	
+					return true
+				end, 1)
+	
+				if DrawingToggle.Enabled then
+					BulletTracers:Clean(runService.RenderStepped:Connect(function()
+						for obj, data in drawingobjs do
+							local from, vis = gameCamera:WorldToViewportPoint(data[1])
+							local to, vis2 = gameCamera:WorldToViewportPoint(data[2])
+							if vis and vis2 then
+								obj.Visible = true
+								obj.From = Vector2.new(from.X, from.Y)
+								obj.To = Vector2.new(to.X, to.Y)
+								if Fade.Enabled then
+									obj.Transparency = Color.Opacity * (1 - math.clamp((os.clock() - data[3]) / Lifetime.Value, 0, 1))
+								end
+							else
+								obj.Visible = false
+							end
+						end
+					end))
+				end
+			else
+				TracerHook:Remove('BulletTracers')
+			end
+		end,
+		Tooltip = 'Allow you to customize bullet tracers.'
+	})
+	local materials = {'SmoothPlastic'}
+	for _, v in Enum.Material:GetEnumItems() do
+		if v.Name ~= 'SmoothPlastic' then
+			table.insert(materials, v.Name)
+		end
+	end
+	Material = BulletTracers:CreateDropdown({
+		Name = 'Material',
+		List = materials
+	})
+	Color = BulletTracers:CreateColorSlider({
+		Name = 'Tracer Color',
+		DefaultOpacity = 0.5
+	})
+	Lifetime = BulletTracers:CreateSlider({
+		Name = 'Lifetime',
+		Min = 0,
+		Max = 0.5,
+		Default = 0.2,
+		Decimal = 10
+	})
+	Fade = BulletTracers:CreateToggle({
+		Name = 'Fade',
+		Default = true
+	})
+	DrawingToggle = BulletTracers:CreateToggle({
+		Name = 'Drawing',
+		Function = function()
+			if BulletTracers.Enabled then
+				BulletTracers:Toggle()
+				BulletTracers:Toggle()
+			end
+		end
+	})
+end)
+
+run(function()
+	local Crosshair
+	local Image
+	local old
+	
+	Crosshair = vape.Legit:CreateModule({
+		Name = 'Crosshair',
+		Function = function(callback)
+			if callback then
+				debug.setconstant(oldequip or pl.Equip, 30, Image.Value:find('rbxasset') and Image.Value or isfile(Image.Value) and getcustomasset(Image.Value) or '')
+			else
+				debug.setconstant(oldequip or pl.Equip, 30, 'rbxassetid://98794608762931')
+			end
+		end,
+		Tooltip = 'Change the crosshair icon'
+	})
+	Image = Crosshair:CreateTextBox({
+		Name = 'Image',
+		Placeholder = 'assetid',
+		Function = function()
+			if Crosshair.Enabled then
+				debug.setconstant(oldequip or pl.Equip, 30, Image.Value:find('rbxasset') and Image.Value or isfile(Image.Value) and getcustomasset(Image.Value) or '')
+			end
+		end
+	})
 end)
 
 run(function()
@@ -2977,5 +3200,283 @@ run(function()
 				indi.Color = Color3.fromHSV(hue, sat, val)
 			end
 		end
+	})
+end)
+
+run(function()
+	local HitSound
+	local Value
+	local Volume
+	local PitchShift
+	local old, sounds = nil, {}
+	
+	HitSound = vape.Legit:CreateModule({
+		Name = 'HitSound',
+		Function = function(callback)
+			if callback then
+				local played
+				TracerHook:Add('HitSound', function(...)
+					local part = debug.getstack(4, 17)
+					if typeof(part) == 'Instance' then
+						for _, v in entitylib.List do
+							if part:IsDescendantOf(v.Character) and entitylib.isVulnerable(v, true) then
+								if #sounds > 0 and not played then
+									local sound = Instance.new('Sound')
+									sound.SoundId = sounds[math.random(1, #sounds)]
+									sound.PlayOnRemove = true
+									sound.PlaybackSpeed = PitchShift.Enabled and 1 + ((0.5 - math.random()) / 10) or 1
+									sound.Volume = Volume.Value
+									sound.Parent = workspace
+									sound:Destroy()
+	
+									played = task.defer(function()
+										played = nil
+									end)
+								end
+	
+								break
+							end
+						end
+					end
+				end)
+			else
+				TracerHook:Remove('HitSound')
+			end
+		end,
+		Tooltip = 'Custom hit sound'
+	})
+	Value = HitSound:CreateTextList({
+		Name = 'Sounds',
+		Placeholder = 'sound id (roblox or file path)',
+		Function = function(list)
+			table.clear(sounds)
+			for index, sound in list or {} do
+				sounds[index] = sound:find('rbxasset') and sound or isfile(sound) and getcustomasset(sound) or nil
+			end
+		end
+	})
+	Volume = HitSound:CreateSlider({
+		Name = 'Volume',
+		Min = 0,
+		Max = 2,
+		Default = 1,
+		Decimal = 10
+	})
+	PitchShift = HitSound:CreateToggle({
+		Name = 'Pitch Shift'
+	})
+end)
+
+run(function()
+	local KillSound
+	local Value
+	local Volume
+	local PitchShift
+	local old, sounds = nil, {}
+	
+	KillSound = vape.Legit:CreateModule({
+		Name = 'KillSound',
+		Function = function(callback)
+			if callback then
+				KillSound:Clean(vapeEvents.PlayerKill.Event:Connect(function(plr)
+					if plr == lplr.Name and #sounds > 0 then
+						local sound = Instance.new('Sound')
+						sound.SoundId = sounds[math.random(1, #sounds)]
+						sound.PlayOnRemove = true
+						sound.PlaybackSpeed = PitchShift.Enabled and 1 + ((0.5 - math.random()) / 10) or 1
+						sound.Volume = Volume.Value
+						sound.Parent = workspace
+						sound:Destroy()
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Custom kill sound'
+	})
+	Value = KillSound:CreateTextList({
+		Name = 'Sounds',
+		Placeholder = 'sound id (roblox or file path)',
+		Function = function(list)
+			table.clear(sounds)
+			for index, sound in list or {} do
+				sounds[index] = sound:find('rbxasset') and sound or isfile(sound) and getcustomasset(sound) or nil
+			end
+		end
+	})
+	Volume = KillSound:CreateSlider({
+		Name = 'Volume',
+		Min = 0,
+		Max = 2,
+		Default = 1,
+		Decimal = 10
+	})
+	PitchShift = KillSound:CreateToggle({
+		Name = 'Pitch Shift'
+	})
+end)
+
+run(function()
+	local Viewmodel
+	local Depth
+	local Horizontal
+	local Vertical
+	local Sway
+	local ForceField
+	local ColorSl
+	local handle
+	local old
+	local moveSpring = Spring.new()
+	local aimSpring = Spring.new({Speed = 15})
+	
+	local function ToolAdded(tool)
+		if tool and tool:IsA('Tool') then
+			if old then
+				for _, inst in old:QueryDescendants('BasePart, Texture, Decal') do
+					inst.LocalTransparencyModifier = 0
+				end
+			end
+	
+			if vtool then
+				vtool:Destroy()
+			end
+	
+			old = tool
+			vtool = tool:Clone()
+			handle = vtool:FindFirstChild('Handle')
+			vtool.Parent = gameCamera
+	
+			for _, part in vtool:QueryDescendants('BasePart') do
+				part.Material = ForceField.Enabled and Enum.Material.ForceField or part.Material
+				part.Color = ForceField.Enabled and Color3.fromHSV(ColorSl.Hue, ColorSl.Sat, ColorSl.Value) or part.Color
+			end
+	
+			for _, inst in old:QueryDescendants('BasePart, Texture, Decal') do
+				inst.LocalTransparencyModifier = 1
+			end
+		end
+	end
+	
+	local function EntityAdded(entity)
+		if vtool then
+			vtool:Destroy()
+			vtool = nil
+			handle = nil
+		end
+	
+		Viewmodel:Clean(entity.Character.ChildAdded:Connect(ToolAdded))
+		Viewmodel:Clean(entity.Character.ChildRemoved:Connect(function(tool)
+			if tool == old then
+				if vtool then
+					vtool:Destroy()
+					vtool = nil
+				end
+	
+				for _, inst in old:QueryDescendants('BasePart, Texture, Decal') do
+					inst.LocalTransparencyModifier = 0
+				end
+	
+				old = nil
+			end
+		end))
+	
+		ToolAdded(entity.Character:FindFirstChildWhichIsA('Tool'))
+	end
+	
+	Viewmodel = vape.Legit:CreateModule({
+		Name = 'Viewmodel',
+		Function = function(callback)
+			if callback then
+				TracerHook:Add('Viewmodel', function(...)
+					shootTimer = os.clock() + 0.3
+				end, 0)
+	
+				Viewmodel:Clean(entitylib.Events.LocalAdded:Connect(EntityAdded))
+				if entitylib.isAlive then
+					task.spawn(EntityAdded, entitylib.character)
+				end
+	
+				Viewmodel:Clean(runService.RenderStepped:Connect(function(dt)
+					if handle then
+						moveSpring.Target = entitylib.isAlive and entitylib.character.RootPart.AssemblyLinearVelocity * 0.005 or Vector3.zero
+	
+						if Sway.Enabled then
+							if moveSpring.Target.Magnitude > 0.1 then
+								moveSpring.Target += (gameCamera.CFrame * CFrame.new(math.sin(tick() * 10) * 0.06, 0, 0)).Position - gameCamera.CFrame.Position
+							else
+								moveSpring.Target += (gameCamera.CFrame * CFrame.new(0, math.sin(tick()) * 0.04, 0)).Position - gameCamera.CFrame.Position
+							end
+						end
+	
+						local cf = (gameCamera.CFrame * CFrame.new(Horizontal.Value, Vertical.Value, -Depth.Value)) + moveSpring:Update(dt)
+						aimSpring.Target = aimTimer > os.clock() and CFrame.lookAt(cf.Position, aimVec).LookVector or gameCamera.CFrame.LookVector
+						handle.CFrame = CFrame.lookAlong(cf.Position, aimSpring:Update(dt)) * (CFrame.Angles(math.rad(math.max(shootTimer - os.clock(), 0) * 10), 0, 0) * CFrame.new(0, 0, math.max(shootTimer - os.clock(), 0)))
+						handle.AssemblyLinearVelocity = Vector3.zero
+					end
+				end))
+			else
+				TracerHook:Remove('Viewmodel')
+	
+				if old then
+					for _, inst in old:QueryDescendants('BasePart, Texture, Decal') do
+						inst.LocalTransparencyModifier = 0
+					end
+	
+					old = nil
+				end
+	
+				if vtool then
+					vtool:Destroy()
+					vtool = nil
+					handle = nil
+				end
+			end
+		end,
+		Tooltip = 'Custom viewmodel for guns'
+	})
+	Depth = Viewmodel:CreateSlider({
+		Name = 'Depth',
+		Min = 0,
+		Max = 3,
+		Default = 3,
+		Decimal = 10
+	})
+	Horizontal = Viewmodel:CreateSlider({
+		Name = 'Horizontal',
+		Min = 0,
+		Max = 2,
+		Default = 2,
+		Decimal = 10
+	})
+	Vertical = Viewmodel:CreateSlider({
+		Name = 'Vertical',
+		Min = -1.5,
+		Max = 2,
+		Default = -1.5,
+		Decimal = 10
+	})
+	Sway = Viewmodel:CreateToggle({
+		Name = 'Sway Effect',
+		Default = true
+	})
+	ForceField = Viewmodel:CreateToggle({
+		Name = 'ForceField Effect',
+		Function = function(callback)
+			ColorSl.Object.Visible = callback
+			if callback and Viewmodel.Enabled then
+				Viewmodel:Toggle()
+				Viewmodel:Toggle()
+			end
+		end
+	})
+	ColorSl = Viewmodel:CreateColorSlider({
+		Name = 'Color',
+		Function = function(hue, sat, val)
+			if vtool then
+				for _, part in vtool:QueryDescendants('BasePart') do
+					part.Color = Color3.fromHSV(hue, sat, val)
+				end
+			end
+		end,
+		Visible = false
 	})
 end)

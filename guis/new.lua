@@ -202,7 +202,7 @@ do
 			createDownloader(path)
 
 			local success, data = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+				return game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 			end)
 
 			if not success or data == '404: Not Found' then
@@ -1078,7 +1078,7 @@ function vape:LoadGUI()
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end,
 		Tooltip = 'This will set your profile to the default settings of Vape'
@@ -1099,7 +1099,7 @@ function vape:LoadGUI()
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end,
 		Tooltip = 'Reloads vape for debugging purposes'
@@ -1232,7 +1232,7 @@ function vape:LoadGUI()
 				if shared.VapeDeveloper then
 					loadstring(readfile('newvape/loader.lua'), 'loader')()
 				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+					loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 				end
 			end
 		end,
@@ -1338,7 +1338,7 @@ function vape:LoadGUI()
 	vape.GUIColor = vape.Categories.Main.Settings:CreateGUISlider({
 		Name = 'GUI Theme',
 		Function = function(h, s, v)
-			vape:UpdateGUI(h, s, v, true)
+			vape:UpdateGUI()
 		end
 	})
 	
@@ -1374,6 +1374,17 @@ function vape:LoadGUI()
 		local Labels = {}
 		local info = TweenInfo.new(0.3, Enum.EasingStyle.Exponential)
 		
+		local function findValidLabel(labels, index, dir)
+			local label = labels[index + dir]
+			if label then
+				if label.Size ~= UDim2.fromOffset() then
+					return label
+				else
+					return findValidLabel(labels, index + dir, dir)
+				end
+			end
+		end
+		
 		TextGUI = vape:CreateOverlay({
 			Name = 'Text GUI',
 			Icon = getvapeasset('newvape/assets/new/textgui.png'),
@@ -1408,7 +1419,7 @@ function vape:LoadGUI()
 		ColorSlider = TextGUI:CreateColorSlider({
 			Name = 'Text GUI color',
 			Function = function()
-				vape:UpdateGUI(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value)
+				vape:UpdateGUI()
 			end,
 			Darker = true,
 			Visible = false
@@ -1544,7 +1555,7 @@ function vape:LoadGUI()
 			Name = 'Set custom text color',
 			Function = function(enabled)
 				CustomTextColorSlider.Object.Visible = enabled
-				vape:UpdateGUI(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value)
+				vape:UpdateGUI()
 			end,
 			Darker = true,
 			Visible = false
@@ -1552,7 +1563,7 @@ function vape:LoadGUI()
 		CustomTextColorSlider = TextGUI:CreateColorSlider({
 			Name = 'Color of custom text',
 			Function = function(afterload)
-				vape:UpdateGUI(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value)
+				vape:UpdateGUI()
 			end,
 			Darker = true,
 			Visible = false
@@ -1803,8 +1814,10 @@ function vape:LoadGUI()
 		
 				for index, label in Labels do
 					if label.Color then
-						local top = (not Labels[index - 1] or (Labels[index - 1].Size.X.Offset < label.Size.X.Offset)) and 4 or 0
-						local bottom = (not Labels[index + 1] or (Labels[index + 1].Size.X.Offset < label.Size.X.Offset)) and 4 or 0
+						local topLabel = findValidLabel(Labels, index, -1)
+						local bottomLabel = findValidLabel(Labels, index, 1)
+						local top = (not topLabel or (topLabel.Size.X.Offset < label.Size.X.Offset)) and 4 or 0
+						local bottom = (not bottomLabel or (bottomLabel.Size.X.Offset < label.Size.X.Offset)) and 4 or 0
 		
 						label.Color.Parent.Line.Visible = index ~= 1
 						label.Color.UICorner.TopLeftRadius = isRight and UDim.new() or UDim.new(0, index == 1 and 4 or 0)
@@ -1822,7 +1835,7 @@ function vape:LoadGUI()
 				end
 			end
 		
-			self:UpdateGUI(self.GUIColor.Hue, self.GUIColor.Sat, self.GUIColor.Value, true)
+			self:UpdateGUI()
 		end
 		
 		function TextGUI:UpdateColor(hue, sat, val, default)
@@ -2126,7 +2139,7 @@ function vape:LoadGUI()
 	
 	local cursorConnection
 	vape:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
-		vape:UpdateGUI(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value, true)
+		vape:UpdateGUI()
 	
 		if clickgui.Visible and inputService.MouseEnabled then
 			if cursorConnection then
@@ -2255,6 +2268,7 @@ function vape:Remove(obj)
 	local container = (self.Modules[obj] and self.Modules or self.Legit.Modules[obj] and self.Legit.Modules or self.Categories)
 	if container and container[obj] then
 		local component = container[obj]
+		local isModule = component.Type == 'Module'
 		if self.ThreadFix then
 			setthreadidentity(8)
 		end
@@ -2274,6 +2288,10 @@ function vape:Remove(obj)
 
 		loopClean(component)
 		container[obj] = nil
+
+		if isModule then
+			self:SortCategories()
+		end
 	end
 end
 
@@ -2324,6 +2342,23 @@ function vape:SaveOptions(obj)
 	return data
 end
 
+function vape:SortCategories()
+	local sorting = {}
+	for _, module in self.Modules do
+		sorting[module.Category] = sorting[module.Category] or {}
+		table.insert(sorting[module.Category], module.Name)
+	end
+
+	for _, sort in sorting do
+		table.sort(sort)
+		for index, name in sort do
+			self.Modules[name].Index = index
+			self.Modules[name].Object.LayoutOrder = index
+			self.Modules[name].Children.LayoutOrder = index
+		end
+	end
+end
+
 function vape:Uninject()
 	self:Save()
 	self.Loaded = nil
@@ -2369,10 +2404,22 @@ function vape:Uninject()
 	shared.VapeIndependent = nil
 end
 
-function vape:UpdateGUI(hue, sat, val, default)
-	if vape.Loaded == nil then return end
-	if not default and vape.GUIColor.Rainbow then return end
+local guiUpdate
+function vape:UpdateGUI()
+	if guiUpdate then
+		return
+	end
 
+	guiUpdate = runService.RenderStepped:Once(function()
+		if vape.Loaded ~= nil then
+			vape:UpdateGUIQueue(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value)
+		end
+
+		guiUpdate = nil
+	end)
+end
+
+function vape:UpdateGUIQueue(hue, sat, val)
 	if TextGUI.Button.Enabled then
 		TextGUI:UpdateColor(hue, sat, val, default)
 	end
@@ -2412,7 +2459,7 @@ end
 components = {
 	Bind = function(props, children, api)
 		local component = {
-			Hold = false,
+			Hold = props.Hold or false,
 			Keys = {},
 			Triggered = createSignal(),
 			Type = 'Bind'
@@ -3418,7 +3465,7 @@ components = {
 			end
 		
 			if not skipGUI then
-				vape:UpdateGUI(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value)
+				vape:UpdateGUI()
 			end
 		end
 		
@@ -5595,7 +5642,7 @@ components = {
 		end)
 		
 		window:GetPropertyChangedSignal('Visible'):Connect(function()
-			vape:UpdateGUI(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value)
+			vape:UpdateGUI()
 			visibleCheck()
 		end)
 		
@@ -5956,21 +6003,7 @@ components = {
 		end
 		
 		vape.Modules[props.Name] = component
-		
-		local sorting = {}
-		for _, module in vape.Modules do
-			sorting[module.Category] = sorting[module.Category] or {}
-			table.insert(sorting[module.Category], module.Name)
-		end
-		
-		for _, sort in sorting do
-			table.sort(sort)
-			for index, name in sort do
-				vape.Modules[name].Index = index
-				vape.Modules[name].Object.LayoutOrder = index
-				vape.Modules[name].Children.LayoutOrder = index
-			end
-		end
+		vape:SortCategories()
 		
 		return component
 	end,
@@ -7955,6 +7988,8 @@ vape.Components = setmetatable(components, {
 				end)
 			end
 		end
+
+		rawset(components, index, callback)
 	end
 })
 

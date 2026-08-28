@@ -14,7 +14,7 @@ end
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -48,7 +48,7 @@ local whitelist = vape.Libraries.whitelist
 local prediction = vape.Libraries.prediction
 local targetinfo = vape.Libraries.targetinfo
 local sessioninfo = vape.Libraries.sessioninfo
-local getcustomasset = vape.Libraries.getcustomasset
+local getvapeasset = vape.Libraries.getvapeasset
 local drawingactor = loadstring(downloadFile('newvape/libraries/drawing.lua'), 'drawing')(...)
 local function notif(...)
 	return vape:CreateNotification(...)
@@ -102,7 +102,7 @@ local function addBlur(parent)
 	blur.Size = UDim2.new(1, 89, 1, 52)
 	blur.Position = UDim2.fromOffset(-48, -31)
 	blur.BackgroundTransparency = 1
-	blur.Image = getcustomasset('newvape/assets/new/blur.png')
+	blur.Image = getvapeasset('newvape/assets/new/blur.png')
 	blur.ScaleType = Enum.ScaleType.Slice
 	blur.SliceCenter = Rect.new(52, 31, 261, 502)
 	blur.Parent = parent
@@ -559,11 +559,21 @@ run(function()
 	ProjectileRaycast.RespectCanCollide = true
 	local rand, old = Random.new()
 	
+	local function getMousePosition()
+		if inputService.TouchEnabled then
+			return gameCamera.ViewportSize / 2
+		end
+	
+		return inputService:GetMouseLocation()
+	end
+	
 	local function getTarget(origin, obj)
-		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
+		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then
+			return
+		end
 		--local targetPart = (Random.new().NextNumber(Random.new(), 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and 'Head' or 'RootPart'
 		local targetPart = 'RootPart'
-		local ent = entitylib['Entity'..Mode.Value]({
+		local entity = entitylib['Entity'..Mode.Value]({
 			Range = Range.Value,
 			Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
 			Part = targetPart,
@@ -571,10 +581,12 @@ run(function()
 			Players = Target.Players.Enabled,
 			NPCs = Target.NPCs.Enabled
 		})
-		if ent then
-			targetinfo.Targets[ent] = tick() + 1
+	
+		if entity then
+			targetinfo.Targets[entity] = tick() + 1
 		end
-		return ent, ent and ent[targetPart]
+	
+		return entity, entity and entity[targetPart]
 	end
 	
 	local function raycastLoop(origin, pos)
@@ -632,11 +644,11 @@ run(function()
 				local oldent
 				repeat
 					if CircleObject then
-						CircleObject.Position = inputService:GetMouseLocation()
+						CircleObject.Position = getMousePosition()
 					end
 	
 					if AutoFire.Enabled then
-						local ent = entitylib['Entity'..Mode.Value]({
+						local entity = entitylib['Entity'..Mode.Value]({
 							Range = Range.Value,
 							Wallcheck = Target.Walls.Enabled or nil,
 							Part = 'RootPart',
@@ -646,13 +658,14 @@ run(function()
 						})
 	
 						local gun = frontlines.Main.globals.fpv_sol_equipment.curr_equipment
-						ent = gun and gun.type ~= 2 and ent or nil
-						if ent ~= oldent or ent then
-							frontlines.Main.globals.ctrl_states.trigger = ent and true or false
-							if ent then
+						entity = gun and gun.type ~= 2 and entity or nil
+						if entity ~= oldent or entity then
+							frontlines.Main.globals.ctrl_states.trigger = entity and true or false
+							if entity then
 								frontlines.Main.globals.ctrl_ts.trigger = time()
 							end
-							oldent = ent
+	
+							oldent = entity
 						end
 					end
 	
@@ -667,7 +680,9 @@ run(function()
 		end,
 		Tooltip = 'Silently adjusts your aim towards the enemy'
 	})
-	Target = SilentAim:CreateTargets({Players = true})
+	Target = SilentAim:CreateTargets({
+		Players = true
+	})
 	Mode = SilentAim:CreateDropdown({
 		Name = 'Mode',
 		List = {'Mouse', 'Position'},
@@ -698,8 +713,12 @@ run(function()
 		Default = 85,
 		Suffix = '%'
 	})
-	AutoFire = SilentAim:CreateToggle({Name = 'AutoFire'})
-	Wallbang = SilentAim:CreateToggle({Name = 'Wallbang'})
+	AutoFire = SilentAim:CreateToggle({
+		Name = 'AutoFire'
+	})
+	Wallbang = SilentAim:CreateToggle({
+		Name = 'Wallbang'
+	})
 	SilentAim:CreateToggle({
 		Name = 'Range Circle',
 		Function = function(callback)
@@ -976,8 +995,8 @@ run(function()
 											frontlines.Main.globals.ctrl_states.trigger = true
 											frontlines.Main.globals.ctrl_ts.trigger = time()
 											frontlines.Main.exe_set(frontlines.Main.exe_set_t.FPV_SOL_MELEE_SOL_HIT, gun, part, Vector3.zero)
-											if vape.ThreadFix then 
-												setthreadidentity(8) 
+											if vape.ThreadFix then
+												setthreadidentity(8)
 											end
 										end
 									end
@@ -1006,11 +1025,11 @@ run(function()
 					task.wait()
 				until not Killaura.Enabled
 			else
-				for i, v in Boxes do 
-					v.Adornee = nil 
+				for i, v in Boxes do
+					v.Adornee = nil
 				end
-				for i, v in Particles do 
-					v.Parent = nil 
+				for i, v in Particles do
+					v.Parent = nil
 				end
 			end
 		end,
@@ -1022,8 +1041,8 @@ run(function()
 		Min = 1,
 		Max = 8,
 		Default = 8,
-		Suffix = function(val) 
-			return val == 1 and 'stud' or 'studs' 
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
 		end
 	})
 	AttackRange = Killaura:CreateSlider({
@@ -1031,8 +1050,8 @@ run(function()
 		Min = 1,
 		Max = 8,
 		Default = 8,
-		Suffix = function(val) 
-			return val == 1 and 'stud' or 'studs' 
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
 		end
 	})
 	Angle = Killaura:CreateSlider({
@@ -1062,12 +1081,12 @@ run(function()
 					box.Size = Vector3.new(3, 5, 3)
 					box.CFrame = CFrame.new(0, -0.5, 0)
 					box.ZIndex = 0
-					box.Parent = vape.gui
+					box.Parent = vape.holder
 					Boxes[i] = box
 				end
 			else
-				for i, v in Boxes do 
-					v:Destroy() 
+				for i, v in Boxes do
+					v:Destroy()
 				end
 				table.clear(Boxes)
 			end
@@ -1114,15 +1133,15 @@ run(function()
 					particles.Shape = Enum.ParticleEmitterShape.Sphere
 					particles.ShapePartial = 1
 					particles.Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)), 
+						ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
 						ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
 					})
 					particles.Parent = part
 					Particles[i] = part
 				end
 			else
-				for i, v in Particles do 
-					v:Destroy() 
+				for i, v in Particles do
+					v:Destroy()
 				end
 				table.clear(Particles)
 			end
@@ -1144,7 +1163,7 @@ run(function()
 		Function = function(hue, sat, val)
 			for i, v in Particles do
 				v.ParticleEmitter.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, sat, val)), 
+					ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, sat, val)),
 					ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
 				})
 			end
@@ -1157,7 +1176,7 @@ run(function()
 		Function = function(hue, sat, val)
 			for i, v in Particles do
 				v.ParticleEmitter.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)), 
+					ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
 					ColorSequenceKeypoint.new(1, Color3.fromHSV(hue, sat, val))
 				})
 			end
@@ -1283,12 +1302,12 @@ run(function()
 	local Color = {}
 	local Reference = {}
 	local Folder = Instance.new('Folder')
-	Folder.Parent = vape.gui
+	Folder.Parent = vape.holder
 	local old
 	
 	local function addESP(v)
-		if vape.ThreadFix then 
-			setthreadidentity(8) 
+		if vape.ThreadFix then
+			setthreadidentity(8)
 		end
 		if not v.model or v.model.Name ~= 'frag' then return end
 		local billboard = Instance.new('BillboardGui')
@@ -1312,8 +1331,8 @@ run(function()
 		uicorner.Parent = image
 		Reference[v.model] = billboard
 		v.model.Destroying:Connect(function()
-			if vape.ThreadFix then 
-				setthreadidentity(8) 
+			if vape.ThreadFix then
+				setthreadidentity(8)
 			end
 			if Reference[v.model] then
 				Reference[v.model]:Destroy()
@@ -1342,8 +1361,8 @@ run(function()
 	Background = GrenadeESP:CreateToggle({
 		Name = 'Background',
 		Function = function(callback)
-			if Color.Object then 
-				Color.Object.Visible = callback 
+			if Color.Object then
+				Color.Object.Visible = callback
 			end
 			for i, v in Reference do
 				v.ImageLabel.BackgroundTransparency = 1 - (callback and Color.Opacity or 0)

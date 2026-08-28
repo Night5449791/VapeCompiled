@@ -9,7 +9,7 @@ local isfile = isfile or function(file)
 end
 local function downloadFile(path, func)
 	if not isfile(path) then
-		local suc, res = pcall(function() return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true) end)
+		local suc, res = pcall(function() return game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true) end)
 		if not suc or res == '404: Not Found' then error(res) end
 		if path:find('.lua') then res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res end
 		writefile(path, res)
@@ -22,6 +22,12 @@ end
 local cloneref = cloneref or function(obj)
 	return obj
 end
+local vapeEvents = setmetatable({}, {
+	__index = function(self, index)
+		self[index] = Instance.new('BindableEvent')
+		return self[index]
+	end
+})
 
 local playersService = cloneref(game:GetService('Players'))
 local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
@@ -29,9 +35,10 @@ local runService = cloneref(game:GetService('RunService'))
 local inputService = cloneref(game:GetService('UserInputService'))
 local textService = cloneref(game:GetService('TextService'))
 local tweenService = cloneref(game:GetService('TweenService'))
-local teamsService = cloneref(game:GetService('Teams'))
 local collectionService = cloneref(game:GetService('CollectionService'))
 local contextService = cloneref(game:GetService('ContextActionService'))
+local httpService = cloneref(game:GetService('HttpService'))
+local teams = cloneref(game:GetService('Teams'))
 
 local gameCamera = workspace.CurrentCamera
 local lplr = playersService.LocalPlayer
@@ -45,10 +52,21 @@ local sessioninfo = vape.Libraries.sessioninfo
 local vm = loadstring(downloadFile('newvape/libraries/vm.lua'), 'vm')()
 
 local jb = {}
+local Spring = {}
 local InfNitro = {Enabled = false}
 local LazerGodmode = {Enabled = false}
 local InvTracker = {Inventories = {}, Connections = {}}
 local oldBulletUpdate
+local aimTimer, shootTimer, aimVec = os.clock(), os.clock()
+
+local function getTableSize(dict)
+	local size = 0
+	for _ in dict do
+		size += 1
+	end
+
+	return size
+end
 
 local function getVehicle(entity)
 	if entity.Player then
@@ -77,18 +95,22 @@ local function isFriend(plr, recolor)
 	return nil
 end
 
-local function isIllegal(entity)
-	if entity.Player and entity.Player.Team == teamsService.Prisoner then
+local function isIllegal(entity, teamCheck)
+	if entity.Character:GetAttribute('HasHandcuffs') then
+		return false
+	end
+
+	if entity.Player and entity.Player.Team == teams.Prisoner then
 		for tool in InvTracker.Inventories[entity.Player] do
 			if tool ~= 'MansionInvite' and tool ~= 'Donut' then
 				return true
 			end
 		end
 
-		return entity.Illegal
+		return entity.InVehicle
 	end
 
-	return true
+	return not teamCheck
 end
 
 local function isTarget(plr)
@@ -97,6 +119,26 @@ end
 
 local function notif(...)
 	return vape:CreateNotification(...)
+end
+
+local frictionTable, oldfrict = {}, {}
+local function updateVelocity()
+	if getTableSize(frictionTable) > 0 then
+		if entitylib.isAlive then
+			for _, part in entitylib.character.Character:GetChildren() do
+				if part:IsA('BasePart') and part.Name ~= 'HumanoidRootPart' and not oldfrict[part] then
+					oldfrict[part] = part.CustomPhysicalProperties or 'none'
+					part.CustomPhysicalProperties = PhysicalProperties.new(0.0001, 0.2, 0.5, 1, 1)
+				end
+			end
+		end
+	else
+		for part, data in oldfrict do
+			part.CustomPhysicalProperties = data ~= 'none' and data or nil
+		end
+
+		table.clear(oldfrict)
+	end
 end
 
 local OriginScanner = {Cache = {}}
@@ -149,23 +191,23 @@ run(function()
 	end
 
 	function OriginScanner:Scan(origin, target, extra, part)
+		if self.Cache[part] then
+			return table.unpack(self.Cache[part])
+		end
+
+		if extra and (origin - extra).Magnitude < 14 then
+			self.Cache[part] = {extra}
+			return extra
+		end
+
 		local scanPositions = {}
 		local diff = CFrame.lookAt(origin * Vector3.new(1, 0, 1), target * Vector3.new(1, 0, 1)).LookVector
+		for _, offset in positions do
+			if (offset * Vector3.new(1, 0, 1)):Dot(diff) > -0.5 then
+				local pos = origin + offset * 14
 
-		if OriginScanner.Cache[part] then
-			return table.unpack(OriginScanner.Cache[part])
-		end
-
-		if extra then
-			if (origin - extra).Magnitude < 14 then
-				table.insert(scanPositions, extra)
-			end
-		end
-
-		if #scanPositions <= 0 then
-			for _, offset in positions do
-				if (offset * Vector3.new(1, 0, 1)):Dot(diff) > -0.5 then
-					table.insert(scanPositions, origin + offset * 14)
+				if checkPoint(pos, overlapParams) then
+					table.insert(scanPositions, pos)
 				end
 			end
 		end
@@ -173,15 +215,15 @@ run(function()
 		for _, pos in scanPositions do
 			local ray = workspace:Raycast(target, (pos - target), rayParams)
 
-			if not ray and checkPoint(target, overlapParams) then
-				OriginScanner.Cache[part] = {pos}
+			if not ray then
+				self.Cache[part] = {pos}
 				return pos
 			end
 		end
 	end
 
-	function OriginScanner:UpdateIgnore(model)
-		local ignore = {lplr.Character, workspace.Items, model}
+	function OriginScanner:UpdateIgnore(data)
+		local ignore = {lplr.Character, workspace.Items, unpack(data)}
 		for _, entity in entitylib.List do
 			table.insert(ignore, entity.Character)
 		end
@@ -199,9 +241,25 @@ run(function()
 			self.Connections[inventory] = {
 				inventory.ChildAdded:Connect(function(tool)
 					self.Inventories[plr][tool.Name] = tool
+
+					if plr == lplr then
+						vapeEvents.ItemAdded:Fire(tool)
+					else
+						local entity = entitylib.getEntity(plr)
+						if entity then
+							entitylib.Events.EntityUpdated:Fire(entity)
+						end
+					end
 				end),
 				inventory.ChildRemoved:Connect(function(tool)
 					self.Inventories[plr][tool.Name] = nil
+
+					if plr ~= lplr then
+						local entity = entitylib.getEntity(plr)
+						if entity then
+							entitylib.Events.EntityUpdated:Fire(entity)
+						end
+					end
 				end),
 				inventory.Destroying:Once(function()
 					for _, connection in self.Connections[inventory] do
@@ -240,6 +298,34 @@ run(function()
 	end)
 end)
 
+local BountyTracker = {Data = {}, List = {}}
+run(function()
+	function BountyTracker:UpdateData(data, update)
+		table.clear(self.Data)
+		table.clear(self.List)
+
+		for _, entry in data do
+			self.Data[entry.Name] = entry.Bounty
+			table.insert(self.List, {entry.Name, entry.Bounty})
+		end
+
+		table.sort(self.List, function(a, b)
+			return a[2] > b[2]
+		end)
+
+		if update then
+			for _, entity in entitylib.List do
+				entitylib.Events.EntityUpdated:Fire(entity)
+			end
+		end
+	end
+
+	BountyTracker:UpdateData(httpService:JSONDecode(replicatedStorage.BountyData.Value))
+	vape:Clean(replicatedStorage.BountyData:GetPropertyChangedSignal('Value'):Connect(function()
+		BountyTracker:UpdateData(httpService:JSONDecode(replicatedStorage.BountyData.Value), true)
+	end))
+end)
+
 run(function()
 	local function getMousePosition()
 		if inputService.TouchEnabled then
@@ -251,7 +337,8 @@ run(function()
 
 	entitylib.getUpdateConnections = function(entity)
 		local hum = entity.Humanoid
-		entity.Illegal = entity.Character:GetAttribute('InVehicle')
+		entity.InVehicle = not entity.Character:GetAttribute('HasHandcuffs') and (entity.Character:GetAttribute('InVehicle') or entity.InVehicle)
+		entity.Illegal = isIllegal(entity, true)
 
 		return {
 			hum:GetPropertyChangedSignal('Health'),
@@ -274,10 +361,10 @@ run(function()
 		if isFriend(entity.Player) then return false end
 		if not select(2, whitelist:get(entity.Player)) then return false end
 
-		if lplr.Team == teamsService.Police then
-			return entity.Player.Team ~= teamsService.Police
+		if lplr.Team == teams.Police then
+			return entity.Player.Team ~= teams.Police
 		else
-			return entity.Player.Team == teamsService.Police
+			return entity.Player.Team == teams.Police
 		end
 
 		return true
@@ -502,17 +589,21 @@ run(function()
 	end
 
 	jb = {
+		AlexChassis = require(replicatedStorage.Module.AlexChassis),
 		Audio = require(replicatedStorage.Std.Audio),
 		BulletEmitter = require(replicatedStorage.Game.ItemSystem.BulletEmitter),
 		CircleAction = require(replicatedStorage.Module.UI).CircleAction,
 		FallingController = require(replicatedStorage.Game.Falling),
 		GunController = require(replicatedStorage.Game.Item.Gun),
+		GunUtils = require(replicatedStorage.Game.GunShop.GunUtils),
 		InventoryItemBinder = require(replicatedStorage.Inventory.InventoryItemBinder),
+		InventoryItemSystem = require(replicatedStorage.Inventory.InventoryItemSystem),
 		ItemSystemController = require(replicatedStorage.Game.ItemSystem.ItemSystem),
 		LightningUtils = require(replicatedStorage.Game.LightningUtils),
 		PlayerUtils = require(replicatedStorage.Game.PlayerUtils),
 		TeamChooseController = require(replicatedStorage.TeamSelect.TeamChooseUI),
-		VehicleController = require(replicatedStorage.Vehicle.VehicleUtils)
+		VehicleController = require(replicatedStorage.Vehicle.VehicleUtils),
+		VehicleSystem = require(replicatedStorage.Game.VehicleSystem)
 	}
 
 	if not jb.VehicleController.toggleLocalLocked or not jb.VehicleController.NitroShopVisible then
@@ -532,17 +623,17 @@ run(function()
 		replicatedStorage.Game.TrainSystem.LocomotiveFront,
 		replicatedStorage.Game.ItemSystem.ItemSystem,
 		replicatedStorage.Game.CashBuyUI,
+		replicatedStorage.Game.GunShop.GunShopUI,
 		replicatedStorage.Game.Item.Taser,
 		replicatedStorage.Game.Item.Donut,
 		replicatedStorage.Game.Item.Gun,
 		replicatedStorage.Game.Falling,
 		lplr.PlayerScripts.LocalScript
 	}, {
-		Action = 'Pickup',
-		Action3 = 'StartRob',
-		Action2 = 'EndRob',
+		Action3 = 'Pickup',
 		AttemptArrest = 'Arrest',
 		attemptPunch = 'Punch',
+		AttemptPickPocket = 'Pickpocket',
 		AttemptVehicleEject = 'Eject',
 		AttemptVehicleEnter = 'GetIn',
 		BroadcastInputBegan = 'InputBegan',
@@ -550,6 +641,8 @@ run(function()
 		CalculateDelta = 'UseNitro',
 		Draw = 'TaseReplicate',
 		Gun = 'PopTires',
+		GunShopUI = 'UnequipItem',
+		GunShopUI1 = 'EquipItem',
 		LocalScript2 = 'LookAngle',
 		LocalScript = 'SelfDamage',
 		onPressed = 'FlipVehicle',
@@ -598,21 +691,10 @@ run(function()
 	local arrests = sessioninfo:AddItem('Arrested')
 	local moneymade = sessioninfo:AddItem('Money Made', 0, toMoney, true)
 	local bounty = sessioninfo:AddItem('Bounty List', '', function()
-		local board = workspace:FindFirstChild('BountyBoard', true)
-		board = board and board:FindFirstChild('MostWanted', true)
-		board = board and board:FindFirstChild('Board', true)
-
 		local text = ''
 
-		for _, obj in (board and board:GetChildren() or {}) do
-			if obj:IsA('Frame') then
-				local plrname = obj:FindFirstChild('NameText', true)
-				local bounty = obj:FindFirstChild('BountyText', true)
-
-				if plrname and bounty then
-					text = text..'\n'..(plrname.Text..': '..bounty.Text:gsub(' Bounty', ''))
-				end
-			end
+		for _, data in BountyTracker.List do
+			text = text..'\n'..data[1]..': '..toMoney(tostring(data[2]))
 		end
 
 		return text
@@ -635,23 +717,99 @@ run(function()
 		end)
 	end
 
+	for _, connection in getconnections(runService.Heartbeat) do
+		if connection.Function and islclosure(connection.Function) and #debug.getupvalues(connection.Function) > 5 then
+			local upval = debug.getupvalue(connection.Function, 6)
+			if type(upval) == 'function' and debug.info(upval, 'n') == 'WalkSpeedFun' then
+				jb.WalkSpeedFun = upval
+				break
+			end
+		end
+	end
+
+	table.insert(whitelist.tagcallback, function(plr, plrtag, rich)
+		if plr then
+			local entity = entitylib.getEntity(plr)
+			if entity then
+				if plr.Team == teams.Prisoner and entity.Illegal then
+					table.insert(plrtag, {text = rich and '💢' or 'Hostile'})
+				end
+
+				if BountyTracker.Data[plr.Name] then
+					table.insert(plrtag, {
+						text = toMoney(tostring(BountyTracker.Data[plr.Name])),
+						color = Color3.fromHSV(0.4, 0.89, 0.75)
+					})
+				end
+			end
+		end
+	end)
+
 	vape:Clean(runService.RenderStepped:Connect(function()
 		table.clear(OriginScanner.Cache)
 	end))
 
 	vape:Clean(entitylib.Events.EntityUpdated:Connect(function(entity)
-		entity.Illegal = entity.Illegal or entity.Character:GetAttribute('InVehicle')
+		local isInVehicle = entity.Character:GetAttribute('InVehicle')
+		if entity.VehicleState ~= isInVehicle and not isInVehicle then
+			entity.VehicleTimer = os.clock() + 0.3
+		end
 
-		if entity.Character:GetAttribute('HasHandcuffs') then
-			entity.Illegal = false
+		entity.VehicleState = isInVehicle
+		entity.InVehicle = not entity.Character:GetAttribute('HasHandcuffs') and (isInVehicle or entity.InVehicle)
+		entity.Illegal = isIllegal(entity, true)
+
+		if entity.Player and entity.Player.Team == teams.Prisoner then
+			entity.Pickpocket = nil
 		end
 	end))
+
+	vape:Clean(entitylib.Events.LocalAdded:Connect(updateVelocity))
 
 	vape:Clean(function()
 		table.clear(remotes)
 		table.clear(jb)
 		restorefunction(fireserver)
 	end)
+end)
+
+run(function()
+	-- https://github.com/J1ck/roblox-spring/blob/main/src/roblox-spring.luau
+	Spring.__index = Spring
+
+	function Spring.new(Properties)
+		local TypeRefined = Properties or {}
+
+		local self = setmetatable({
+			Target = Vector3.new(),
+			Position = Vector3.new(),
+			Velocity = Vector3.new(),
+
+			Mass = TypeRefined.Mass or 5,
+			Force = TypeRefined.Force or 50,
+			Damping	= TypeRefined.Damping or 4,
+			Speed = TypeRefined.Speed or 4,
+		}, Spring)
+
+		return self
+	end
+
+	function Spring:Update(DeltaTime)
+		local IterationsThisFrame = DeltaTime / ((1 / 60) / 8)
+		local ScaledDeltaTime = DeltaTime * self.Speed / IterationsThisFrame
+
+		for i = 1, math.round(IterationsThisFrame) do
+			local IterationForce = self.Target - self.Position
+			local Acceleration = (IterationForce * self.Force) / self.Mass
+
+			Acceleration -= self.Velocity * self.Damping
+
+			self.Velocity += Acceleration * ScaledDeltaTime
+			self.Position += self.Velocity * ScaledDeltaTime
+		end
+
+		return self.Position
+	end
 end)
 
 for _, v in {'Reach', 'TriggerBot', 'Disabler', 'AntiFall', 'HitBoxes', 'Killaura', 'MurderMystery'} do
@@ -670,6 +828,7 @@ run(function()
 	local CircleTransparency
 	local CircleFilled
 	local CircleObject
+	local rand = Random.new()
 	local old
 	local ProjectileRaycast = RaycastParams.new()
 	ProjectileRaycast.RespectCanCollide = true
@@ -683,7 +842,11 @@ run(function()
 	end
 	
 	local function getTarget(origin, limit, attackcheck)
-		local targetPart = 'RootPart'
+		if rand.NextNumber(rand, 0, 100) > HitChance.Value then
+			return
+		end
+	
+		local targetPart = (rand.NextNumber(rand, 0, 100) < HeadshotChance.Value) and 'Head' or 'RootPart'
 		local entity = entitylib['Entity'..Mode.Value]({
 			Range = Mode.Value == 'Position' and math.min(Range.Value, limit) or Range.Value,
 			RangePosition = limit,
@@ -706,7 +869,8 @@ run(function()
 		local item = ...
 	
 		if item.Local then
-			OriginScanner:UpdateIgnore(item.Model)
+			OriginScanner:UpdateIgnore(item.BulletEmitter.IgnoreList)
+			shootTimer = os.clock() + 0.1
 			local entity, targetPart, origin = getTarget(item.Tip.CFrame, (item.Config.BulletSpeed or 1000) * item.BulletEmitter.LifeSpan)
 	
 			if entity then
@@ -728,10 +892,12 @@ run(function()
 				ProjectileRaycast.FilterDescendantsInstances = {gameCamera, entity.Character, workspace.Vehicles}
 				ProjectileRaycast.CollisionGroup = entity.RootPart.CollisionGroup
 	
-				local trajectory = prediction.SolveTrajectory(origin.Position, item.Config.BulletSpeed or 1000, math.abs(item.BulletEmitter.GravityVector.Y), entity.RootPart.Position, oldBulletUpdate and Vector3.zero or entity.RootPart.AssemblyLinearVelocity, workspace.Gravity, entity.HipHeight, nil, ProjectileRaycast)
+				local trajectory = oldBulletUpdate and targetPart.Position or prediction.SolveTrajectory(origin.Position, item.Config.BulletSpeed or 1000, math.abs(item.BulletEmitter.GravityVector.Y), targetPart.Position, entity.RootPart.AssemblyLinearVelocity, workspace.Gravity, entity.HipHeight, nil, ProjectileRaycast)
 				if trajectory then
 					targetinfo.Targets[entity] = tick() + 1
 					item.TipDirection = CFrame.lookAt(origin.Position, trajectory).LookVector
+					aimTimer = os.clock() + 0.3
+					aimVec = targetPart.Position
 				end
 	
 				if oldTip then
@@ -750,6 +916,10 @@ run(function()
 		Function = function(callback)
 			if CircleObject then
 				CircleObject.Visible = callback and Mode.Value == 'Mouse'
+			end
+	
+			if Wallbang.Enabled then
+				debug.setconstant(jb.GunController.ShootCheckConditions, 1, callback and '_Tip' or 'Tip')
 			end
 	
 			if callback then
@@ -800,8 +970,27 @@ run(function()
 			return val == 1 and 'stud' or 'studs'
 		end
 	})
+	HitChance = SilentAim:CreateSlider({
+		Name = 'Hit Chance',
+		Min = 0,
+		Max = 100,
+		Default = 85,
+		Suffix = '%'
+	})
+	HeadshotChance = SilentAim:CreateSlider({
+		Name = 'Headshot Chance',
+		Min = 0,
+		Max = 100,
+		Default = 65,
+		Suffix = '%'
+	})
 	Wallbang = SilentAim:CreateToggle({
 		Name = 'Wallbang',
+		Function = function(callback)
+			if SilentAim.Enabled then
+				debug.setconstant(jb.GunController.ShootCheckConditions, 1, callback and '_Tip' or 'Tip')
+			end
+		end,
 		Tooltip = 'Allow you to shoot people through walls when specific conditions are met.\n(If the entity has a valid hitbox position exposed or if the shoot position can be moved past walls (eg hugging walls))'
 	})
 	SilentAim:CreateToggle({
@@ -864,11 +1053,27 @@ run(function()
 end)
 
 run(function()
+	local Sprint
+	
+	Sprint = vape.Categories.Combat:CreateModule({
+		Name = 'Sprint',
+		Function = function(callback)
+			if callback then
+				repeat
+					debug.setupvalue(jb.WalkSpeedFun, 9, true)
+					task.wait(0.05)
+				until not Sprint.Enabled
+			end
+		end,
+		Tooltip = 'Sets your sprinting to true.'
+	})
+end)
+
+run(function()
 	local AutoArrest
 	local Range
 	local AutoEquip
 	local cooldown = 0
-	local ejectCooldown = 0
 	
 	local function equipTool(tool)
 		local obj = jb.InventoryItemBinder:Get(tool)
@@ -884,9 +1089,8 @@ run(function()
 				repeat
 					local cuffs = InvTracker.Inventories[lplr].Handcuffs
 	
-					if lplr.Team == teams.Police and cuffs then
+					if entitylib.isAlive and lplr.Team == teams.Police and cuffs then
 						local serverPos = entitylib.character.Humanoid:FindFirstChild('HumanoidUnloadServerPosition')
-						local vehicle
 						local target
 	
 						local entities = entitylib.AllPosition({
@@ -898,17 +1102,13 @@ run(function()
 	
 						for _, entity in entities do
 							if entity.Player and isIllegal(entity) then
-								if entity.Character:GetAttribute('InVehicle') then
-									if not vehicle and ejectCooldown < os.clock() then
-										vehicle = getVehicle(entity)
-									end
-								elseif not entity.Character:GetAttribute('HasHandcuffs') and not target and cooldown < os.clock() then
+								if not entity.Character:GetAttribute('InVehicle') and not entity.Character:GetAttribute('HasHandcuffs') and not target and cooldown < os.clock() then
 									target = entity.Player.Name
 								end
 							end
 						end
 	
-						if vehicle or target then
+						if target then
 							local lastEquipped = jb.ItemSystemController:GetLocalEquipped()
 							if AutoEquip.Enabled and not (lastEquipped and lastEquipped.__ClassName == 'Handcuffs') then
 								equipTool(cuffs)
@@ -916,11 +1116,6 @@ run(function()
 	
 							local equipped = jb.ItemSystemController:GetLocalEquipped()
 							if equipped and equipped.__ClassName == 'Handcuffs' then
-								if vehicle then
-									jb:FireServer('Eject', vehicle)
-									ejectCooldown = os.clock() + 0.2
-								end
-	
 								if target then
 									jb:FireServer('Arrest', target)
 									cooldown = os.clock() + 0.5
@@ -951,6 +1146,136 @@ run(function()
 	AutoEquip = AutoArrest:CreateToggle({
 		Name = 'AutoEquip',
 		Tooltip = 'Automatically equip the handcuffs for performing actions (RISKY)'
+	})
+end)
+
+run(function()
+	local AutoEject
+	local Range
+	local Hand
+	local cooldown = 0
+	
+	AutoEject = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoEject',
+		Function = function(callback)
+			if callback then
+				repeat
+					local cuffs = InvTracker.Inventories[lplr].Handcuffs
+	
+					if entitylib.isAlive and lplr.Team == teams.Police and cuffs then
+						local equipped = jb.ItemSystemController:GetLocalEquipped()
+	
+						if not Hand.Enabled or equipped and equipped.__ClassName == 'Handcuffs' then
+							local serverPos = entitylib.character.Humanoid:FindFirstChild('HumanoidUnloadServerPosition')
+							local vehicle
+	
+							local entities = entitylib.AllPosition({
+								Players = true,
+								Part = 'RootPart',
+								Range = Range.Value,
+								Origin = serverPos and serverPos.Value or nil
+							})
+	
+							for _, entity in entities do
+								if entity.Player and isIllegal(entity) then
+									if entity.Character:GetAttribute('InVehicle') then
+										if not vehicle and cooldown < os.clock() then
+											vehicle = getVehicle(entity)
+										end
+									end
+								end
+							end
+	
+							if vehicle then
+								jb:FireServer('Eject', vehicle)
+								cooldown = os.clock() + 0.5
+							end
+						end
+					end
+	
+					task.wait(0.016)
+				until not AutoEject.Enabled
+			end
+		end,
+		Tooltip = 'Automatically ejects on nearby vehicles'
+	})
+	Range = AutoEject:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 40,
+		Default = 40,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	Hand = AutoEject:CreateToggle({
+		Name = 'Hand Check',
+		Tooltip = 'Only eject while holding handcuffs'
+	})
+end)
+
+run(function()
+	local AutoPickpocket
+	local Range
+	local cooldown = 0
+	
+	local function equipTool(tool)
+		local obj = jb.InventoryItemBinder:Get(tool)
+		if obj then
+			obj:AttemptSelect()
+		end
+	end
+	
+	AutoPickpocket = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoPickpocket',
+		Function = function(callback)
+			if callback then
+				repeat
+					if entitylib.isAlive then
+						local serverPos = entitylib.character.Humanoid:FindFirstChild('HumanoidUnloadServerPosition')
+						local target
+	
+						local entities = entitylib.AllPosition({
+							Players = true,
+							Part = 'RootPart',
+							Range = Range.Value,
+							Origin = serverPos and serverPos.Value or nil
+						})
+	
+						for _, entity in entities do
+							if entity.Player and entity.Player.Team ~= teams.Prisoner then
+								if not (target or entity.Pickpocket) and cooldown < os.clock() then
+									if entity.Player.Team == teams.Criminal and not entity.Character:GetAttribute('HasHandcuffs') then
+										continue
+									end
+	
+									target = entity
+									break
+								end
+							end
+						end
+	
+						if target then
+							target.Pickpocket = target.Player.Team == teams.Criminal
+							jb:FireServer('Pickpocket', target.Player.Name)
+							cooldown = os.clock() + 0.2
+						end
+					end
+	
+					task.wait(0.016)
+				until not AutoPickpocket.Enabled
+			end
+		end,
+		Tooltip = 'Automatically steals from nearby entities'
+	})
+	Range = AutoPickpocket:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 16,
+		Default = 16,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
 	})
 end)
 
@@ -986,7 +1311,7 @@ run(function()
 			local localPosition = entitylib.character.HumanoidRootPart.Position
 	
 			for _, vehicle in collectionService:GetTagged('Vehicle') do
-				if vehicle.PrimaryPart and (vehicle.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
+				if vehicle.PrimaryPart and (vehicle.PrimaryPart.Position - localPosition).Magnitude <= Range.Value and vehicle:GetAttribute('VehicleHasDriver') then
 					local entities = getEntitiesInVehicle(vehicle)
 					local canAttack = #entities > 0
 	
@@ -1039,8 +1364,8 @@ run(function()
 	Range = AutoPop:CreateSlider({
 		Name = 'Range',
 		Min = 1,
-		Max = 600,
-		Default = 600,
+		Max = 640,
+		Default = 640,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
 		end
@@ -1066,7 +1391,7 @@ run(function()
 				until not AutoPunch.Enabled
 			end
 		end,
-		Tooltip = 'Always punches people infront of you'
+		Tooltip = 'Always punches objects and entities infront of you'
 	})
 end)
 
@@ -1103,7 +1428,7 @@ run(function()
 				repeat
 					local taser = InvTracker.Inventories[lplr].Taser
 	
-					if taser then
+					if entitylib.isAlive and taser then
 						local equipped = jb.ItemSystemController:GetLocalEquipped()
 						local isTaser = equipped and equipped.__ClassName == 'Taser'
 	
@@ -1116,7 +1441,7 @@ run(function()
 	
 							if (taser:GetAttribute('NextUse') or 0) < os.clock() then
 								for _, entity in entities do
-									if isIllegal(entity) and not (entity.Character:GetAttribute('HasHandcuffs') or entity.Character:GetAttribute('InVehicle')) then
+									if isIllegal(entity) and (entity.VehicleTimer or 0) < os.clock() and not (entity.Character:GetAttribute('HasHandcuffs') or entity.Character:GetAttribute('InVehicle') or entity.Head.CanCollide) then
 										drawTaser(equipped and equipped.Tip or entitylib.character.RootPart, entity.RootPart.Position)
 										taser:SetAttribute('LastUsedAt', os.clock())
 										taser:SetAttribute('NextUse', os.clock() + 10)
@@ -1214,11 +1539,220 @@ run(function()
 	})
 end)
 
+local Fly
+local LongJump
+run(function()
+	local Value
+	local UpKey
+	local DownKey
+	local VerticalValue
+	local CustomProperties
+	local PlatformStanding
+	local Platform, YLevel, OldYLevel
+	local up, down = 0, 0
+
+	Fly = vape.Categories.Blatant:CreateModule({
+		Name = 'Fly',
+		Function = function(callback)
+			frictionTable.Fly = callback and CustomProperties.Enabled or nil
+			updateVelocity()
+			if callback then
+				Platform = Instance.new('Part')
+				Platform.CanQuery = false
+				Platform.Anchored = true
+				Platform.Size = Vector3.new(100, 1, 100)
+				Platform.Transparency = 1
+
+				Fly:Clean(Platform)
+				Fly:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive then
+						if PlatformStanding.Enabled then
+							entitylib.character.Humanoid.PlatformStand = true
+							entitylib.character.RootPart.AssemblyAngularVelocity = Vector3.zero
+							entitylib.character.RootPart.CFrame = CFrame.lookAlong(entitylib.character.RootPart.CFrame.Position, gameCamera.CFrame.LookVector)
+						end
+
+						local hum = entitylib.character.Humanoid
+						local root = entitylib.character.RootPart
+						if hum.Sit then
+							local packet = jb.VehicleController.GetLocalVehiclePacket()
+							local wheel = packet and packet.EngineThrusters[1]
+
+							if wheel then
+								local suspension = (packet.Model:GetAttribute('GarageSuspensionHeight') or 0) + packet.Height
+								lplr.Character:SetAttribute('DoNotAllowVehicleExit', table.find(UpKey.Keys, 'Space') and true or false)
+								packet.Seat.CFrame += Vector3.new(0, (up + down) * VerticalValue.Value * dt, 0)
+								Platform.Position = wheel.Engine.Position + Vector3.new(0, -suspension, 0)
+								Platform.Parent = gameCamera
+							end
+
+							return
+						else
+							Platform.Parent = nil
+						end
+
+						root.AssemblyLinearVelocity = (hum.MoveDirection * Value.Value) + Vector3.new(0, 2.25 + ((up + down) * VerticalValue.Value), 0)
+					else
+						YLevel = nil
+						OldYLevel = nil
+					end
+				end))
+
+				up, down = 0, 0
+
+				Fly:Clean(UpKey.Triggered:Connect(function(isDown)
+					up = isDown and 1 or 0
+				end))
+
+				Fly:Clean(DownKey.Triggered:Connect(function(isDown)
+					down = isDown and -1 or 0
+				end))
+
+				if inputService.TouchEnabled then
+					pcall(function()
+						local jumpButton = lplr.PlayerGui.TouchGui.TouchControlFrame.JumpButton
+						Fly:Clean(jumpButton:GetPropertyChangedSignal('ImageRectOffset'):Connect(function()
+							up = jumpButton.ImageRectOffset.X == 146 and 1 or 0
+						end))
+					end)
+				end
+			else
+				YLevel, OldYLevel = nil, nil
+				if entitylib.isAlive then
+					if PlatformStanding.Enabled then
+						entitylib.character.Humanoid.PlatformStand = false
+					end
+
+					lplr.Character:SetAttribute('DoNotAllowVehicleExit', nil)
+				end
+			end
+		end,
+		Tooltip = 'Makes you go zoom.'
+	})
+	UpKey = Fly:CreateBind({
+		Name = 'Up Key',
+		Default = {'Space'},
+		Hold = true,
+		Tooltip = 'Keybind to fly upwards'
+	})
+	DownKey = Fly:CreateBind({
+		Name = 'Down Key',
+		Default = {'LeftControl'},
+		Hold = true,
+		Tooltip = 'Keybind to fly downwards'
+	})
+	Value = Fly:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	VerticalValue = Fly:CreateSlider({
+		Name = 'Vertical Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	PlatformStanding = Fly:CreateToggle({
+		Name = 'PlatformStand',
+		Function = function(callback)
+			if Fly.Enabled then
+				entitylib.character.Humanoid.PlatformStand = callback
+			end
+		end,
+		Tooltip = 'Forces the character to look infront of the camera'
+	})
+	CustomProperties = Fly:CreateToggle({
+		Name = 'Custom Properties',
+		Function = function()
+			if Fly.Enabled then
+				Fly:Toggle()
+				Fly:Toggle()
+			end
+		end,
+		Default = true
+	})
+end)
+
+run(function()
+	local ForceEquip
+	local old
+	
+	ForceEquip = vape.Categories.Blatant:CreateModule({
+		Name = 'ForceEquip',
+		Function = function(callback)
+			if callback then
+				for _, condition in jb.InventoryItemSystem._equipConditions do
+					if debug.getconstants(condition)[1] == 'IsCrawling' then
+						debug.setconstant(condition, 1, '_IsCrawling')
+						old = condition
+						break
+					end
+				end
+			else
+				if old then
+					debug.setconstant(old, 1, 'IsCrawling')
+					old = nil
+				end
+			end
+		end,
+		Tooltip = 'Allow you to equip while crouching'
+	})
+end)
+
 run(function()
 	local GunModifications
+	local Recoil
+	local Spread
+	local Automatic
+	local EquipTime
+	local VehicleWallbang
 	local Headshot
 	local Hitscan
 	local oldhit
+	local oldequip
+	local olddata = {}
+	
+	local function ModifyGun(gun)
+		if gun and gun.LastReplicateMousePosition then
+			if not olddata[gun.Config] then
+				olddata[gun.Config] = table.clone(gun.Config)
+			end
+	
+			gun.Config.CamShakeMagnitude = Recoil.Enabled and 0 or olddata[gun.Config].CamShakeMagnitude
+			gun.Config.FireAuto = Automatic.Enabled or olddata[gun.Config].FireAuto
+	
+			if gun.Config.BulletSpread then
+				gun.Config.BulletSpread = Spread.Enabled and 0 or olddata[gun.Config].BulletSpread
+			end
+	
+			local vehicleIndex = table.find(gun.BulletEmitter.IgnoreList, workspace.Vehicles)
+			if vehicleIndex then
+				if not VehicleWallbang.Enabled then
+					table.remove(gun.BulletEmitter.IgnoreList, vehicleIndex)
+				end
+			else
+				if VehicleWallbang.Enabled then
+					table.insert(gun.BulletEmitter.IgnoreList, workspace.Vehicles)
+				end
+			end
+		end
+	end
+	
+	local function ApplyMods()
+		if GunModifications.Enabled then
+			local equipped = jb.ItemSystemController:GetLocalEquipped()
+			if equipped then
+				task.spawn(ModifyGun, equipped)
+			end
+		end
+	end
 	
 	GunModifications = vape.Categories.Blatant:CreateModule({
 		Name = 'GunModifications',
@@ -1228,19 +1762,34 @@ run(function()
 					oldBulletUpdate = hookfunction(jb.BulletEmitter.Update, function(...)
 						local self = ...
 						if self.Local then
-							self.LastUpdate = tick() - (self.LifeSpan - 0.1)
+							self.LastUpdate = tick() - self.LifeSpan
 						end
 	
 						return oldBulletUpdate(...)
 					end)
 				end
 	
-				if Headshot.Enabled then
+				--[[if Headshot.Enabled then
 					oldhit = hookfunction(jb.GunController.BulletEmitterOnLocalHitPlayer, function(...)
 						local shotData = select(15, ...)
 						shotData.isHeadshot = true
 						return oldhit(...)
 					end)
+				end]]
+	
+				if EquipTime.Enabled then
+					oldequip = hookfunction(jb.GunUtils.getShouldAddEquipTime, function()
+						return false
+					end)
+				end
+	
+				GunModifications:Clean(jb.ItemSystemController.OnLocalItemEquipped:Connect(function(item)
+					task.spawn(ModifyGun, item)
+				end))
+	
+				local equipped = jb.ItemSystemController:GetLocalEquipped()
+				if equipped then
+					task.spawn(ModifyGun, equipped)
 				end
 			else
 				if oldBulletUpdate then
@@ -1252,11 +1801,50 @@ run(function()
 					restorefunction(jb.GunController.BulletEmitterOnLocalHitPlayer)
 					oldhit = nil
 				end
+	
+				if oldequip then
+					restorefunction(jb.GunUtils.getShouldAddEquipTime)
+					oldequip = nil
+				end
+	
+				for config, data in olddata do
+					for i, v in data do
+						config[i] = v
+					end
+				end
+	
+				table.clear(olddata)
 			end
 		end,
 		Tooltip = 'Apply various modifications to enhance any firearm'
 	})
-	Headshot = GunModifications:CreateToggle({
+	Recoil = GunModifications:CreateToggle({
+		Name = 'No Recoil',
+		Function = ApplyMods
+	})
+	Spread = GunModifications:CreateToggle({
+		Name = 'No Spread',
+		Function = ApplyMods
+	})
+	EquipTime = GunModifications:CreateToggle({
+		Name = 'No Equip Time',
+		Function = function()
+			if GunModifications.Enabled then
+				GunModifications:Toggle()
+				GunModifications:Toggle()
+			end
+		end
+	})
+	Automatic = GunModifications:CreateToggle({
+		Name = 'Full Automatic',
+		Function = ApplyMods
+	})
+	VehicleWallbang = GunModifications:CreateToggle({
+		Name = 'Vehicle Wallbang',
+		Function = ApplyMods,
+		Tooltip = 'Allow you to shoot through vehicles.'
+	})
+	--[[Headshot = GunModifications:CreateToggle({
 		Name = 'Always Headshot',
 		Function = function()
 			if GunModifications.Enabled then
@@ -1265,7 +1853,7 @@ run(function()
 			end
 		end,
 		Tooltip = 'Force headshot damage when hitting any body part'
-	})
+	})]]
 	Hitscan = GunModifications:CreateToggle({
 		Name = 'Hitscan Bullets',
 		Function = function()
@@ -1312,7 +1900,73 @@ run(function()
 				table.clear(modified)
 			end
 		end,
-		Tooltip = 'Allow you to ignore lazers found in the jewelry store'
+		Tooltip = 'Allow you to ignore specific damage sources'
+	})
+end)
+
+run(function()
+	local Mode
+	local Value
+	local AutoDisable
+	
+	LongJump = vape.Categories.Blatant:CreateModule({
+		Name = 'LongJump',
+		Function = function(callback)
+			if callback then
+				local exempt = tick() + 0.1
+				LongJump:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive then
+						local hum = entitylib.character.Humanoid
+						local root = entitylib.character.RootPart
+						if hum.FloorMaterial ~= Enum.Material.Air then
+							if exempt < tick() and AutoDisable.Enabled then
+								if LongJump.Enabled then
+									LongJump:Toggle()
+								end
+							else
+								entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+							end
+						end
+	
+						if hum.Sit then return end
+	
+						local dir = hum.MoveDirection * Value.Value
+						if Mode.Value == 'Velocity' then
+							root.AssemblyLinearVelocity = dir + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+						elseif Mode.Value == 'Impulse' then
+							local diff = (dir - root.AssemblyLinearVelocity) * Vector3.new(1, 0, 1)
+							if diff.Magnitude > (dir == Vector3.zero and 10 or 2) then
+								root:ApplyImpulse(diff * root.AssemblyMass)
+							end
+						else
+							root.CFrame += dir * dt
+						end
+					end
+				end))
+			end
+		end,
+		ExtraText = function()
+			return Mode.Value
+		end,
+		Tooltip = 'Lets you jump farther'
+	})
+	Mode = LongJump:CreateDropdown({
+		Name = 'Mode',
+		List = {'Velocity', 'Impulse', 'CFrame'},
+		Tooltip = 'Velocity - Uses smooth physics based movement\nImpulse - Same as velocity while using forces instead\nCFrame - Directly adjusts the position of the root'
+	})
+	Value = LongJump:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	AutoDisable = LongJump:CreateToggle({
+		Name = 'Auto Disable',
+		Default = true
 	})
 end)
 
@@ -1322,8 +1976,115 @@ run(function()
 		Function = function(callback)
 			debug.setconstant(debug.getupvalue(jb.FallingController.Init, 20), 9, callback and 'Archivable' or 'Sit')
 		end,
-		Tooltip = 'Disables ragdoll handling & fall damage'
+		Tooltip = 'Disables ragdoll handling and fall damage'
 	})
+end)
+
+run(function()
+	local NoSlowdown
+	local Toggles = {}
+	
+	NoSlowdown = vape.Categories.Blatant:CreateModule({
+		Name = 'NoSlowdown',
+		Function = function(callback)
+			debug.setconstant(jb.WalkSpeedFun, 5, callback and Toggles.Damage.Enabled and 'MaxHealth' or 'Health')
+			debug.setconstant(jb.WalkSpeedFun, 13, callback and Toggles.SWAT.Enabled and '_ShieldSWAT' or 'ShieldSWAT')
+			debug.setconstant(jb.WalkSpeedFun, 16, callback and Toggles.Crawling.Enabled and 1 or 0.4)
+			debug.setconstant(jb.WalkSpeedFun, 33, callback and Toggles.Spotlight.Enabled and '_IsInTrackingSpotlight' or 'IsInTrackingSpotlight')
+		end,
+		Tooltip = 'Prevents slowing down from various sources.'
+	})
+	
+	for _, toggle in {'Damage', 'Crawling', 'SWAT', 'Spotlight'} do
+		Toggles[toggle] = NoSlowdown:CreateToggle({
+			Name = toggle,
+			Function = function(callback)
+				if NoSlowdown.Enabled then
+					NoSlowdown:Toggle()
+					NoSlowdown:Toggle()
+				end
+			end
+		})
+	end
+end)
+
+run(function()
+	local Speed
+	local Value
+	local CustomProperties
+	
+	Speed = vape.Categories.Blatant:CreateModule({
+		Name = 'Speed',
+		Function = function(callback)
+			frictionTable.Speed = callback and CustomProperties.Enabled or nil
+			updateVelocity()
+			if callback then
+				Speed:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive and not Fly.Enabled and not LongJump.Enabled then
+						local hum = entitylib.character.Humanoid
+						local state = entitylib.character.Humanoid:GetState()
+						if state == Enum.HumanoidStateType.Climbing then return end
+						if hum.Sit then return end
+	
+						local root = entitylib.character.RootPart
+						root.AssemblyLinearVelocity = (hum.MoveDirection * Value.Value) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Increases your movement with various methods.'
+	})
+	Value = Speed:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	CustomProperties = Speed:CreateToggle({
+		Name = 'Custom Properties',
+		Function = function()
+			if Speed.Enabled then
+				Speed:Toggle()
+				Speed:Toggle()
+			end
+		end,
+		Default = true
+	})
+end)
+
+run(function()
+	local VehicleSpeed
+	local Value
+	local old
+	
+	VehicleSpeed = vape.Categories.Blatant:CreateModule({
+		Name = 'VehicleSpeed',
+		Function = function(callback)
+			if callback then
+				old = hookfunction(jb.AlexChassis.Update, function(...)
+					local self = ...
+					self.GarageEngineSpeed = Value.Value
+					return old(...)
+				end)
+			else
+				if old then
+					restorefunction(jb.AlexChassis.Update)
+					old = nil
+				end
+			end
+		end,
+		Tooltip = 'Automatically adjust the engine level of the vehicle.'
+	})
+	Value = VehicleSpeed:CreateSlider({
+		Name = 'Speed',
+		Min = 0,
+		Max = 30,
+		Default = 30
+	})
+	
 end)
 
 run(function()
@@ -1359,7 +2120,7 @@ run(function()
 			if callback then
 				old = hookfunction(jb.CircleAction.Press, function(...)
 					local action = jb.CircleAction.Spec
-					if action and action.Timed and not (action.ReleaseCallback or await) then
+					if action and action.Timed and not (action.ReleaseCallback or action.ShouldHotwire or await) then
 						local old = action.Timed
 	
 						action.Timed = false
@@ -1445,7 +2206,7 @@ run(function()
 	for _, team in {'Prisoner', 'Police'} do
 		AutoHotbar:CreateTextList({
 			Name = team..' Pickups',
-			Default = team == 'Prisoner' and {'1/AK47', '2/Shotgun', '3/Pistol'} or {'1/AK47', '2/Shotgun', '3/Pistol', '4/Taser', '5/Taser', '6/RoadSpike'},
+			Default = team == 'Prisoner' and {'1/AK47', '2/Shotgun', '3/Pistol'} or {'1/AK47', '2/Shotgun', '3/Pistol', '4/Taser', '5/RoadSpike'},
 			Placeholder = 'priority/item',
 			Function = function(list)
 				table.clear(SortList[team])
@@ -1453,7 +2214,7 @@ run(function()
 				for _, entry in list do
 					local data = entry:split('/')
 					local priority = tonumber(data[1]) or 999
-					SortList[team][data[2]] = priority
+					SortList[team][data[2] or ''] = priority
 				end
 			end
 		})
@@ -1530,4 +2291,203 @@ run(function()
 			end
 		})
 	end
+end)
+
+run(function()
+	local FPSBooster
+	local destructibles = {}
+	local old
+	
+	local function addInstance(obj)
+		local found = obj:FindFirstChild('DestructibleInstance')
+		if found and found.Value then
+			destructibles[obj] = found.Value
+		end
+	end
+	
+	FPSBooster = vape.Legit:CreateModule({
+		Name = 'FPSBooster',
+		Function = function(callback)
+			if callback then
+				old = debug.getupvalue(jb.GunController.Setup, 2)
+				debug.setupvalue(jb.GunController.Setup, 2, {
+					GetTagged = function()
+						local self = debug.getstack(2, 1)
+						if type(self) == 'table' and self.IgnoreList then
+							for _, obj in destructibles do
+								table.insert(self.IgnoreList, obj)
+							end
+						end
+	
+						return {}
+					end
+				})
+	
+				for _, obj in collectionService:GetTagged('DestructibleSpawn') do
+					addInstance(obj)
+				end
+	
+				FPSBooster:Clean(collectionService:GetInstanceAddedSignal('DestructibleSpawn'):Connect(addInstance))
+				FPSBooster:Clean(collectionService:GetInstanceRemovedSignal('DestructibleSpawn'):Connect(function(obj)
+					destructibles[obj] = nil
+				end))
+			else
+				if old then
+					debug.setupvalue(jb.GunController.Setup, 2, old)
+					old = nil
+				end
+	
+				table.clear(destructibles)
+			end
+		end,
+		Tooltip = 'Optimize certain parts of the game to gain more FPS'
+	})
+end)
+
+run(function()
+	local Viewmodel
+	local Depth
+	local Horizontal
+	local Vertical
+	local Sway
+	local ForceField
+	local ColorSl
+	local handle
+	local old
+	local moveSpring = Spring.new()
+	local aimSpring = Spring.new({Speed = 15})
+	
+	local function ToolAdded(tool)
+		if tool then
+			if vtool then
+				vtool:Destroy()
+			end
+	
+			old = tool
+			vtool = tool:Clone()
+			handle = vtool:FindFirstChild('BoundingBox', true) or vtool:FindFirstChild('Center', true)
+			vtool.Parent = gameCamera
+	
+			local motor = vtool:FindFirstChild('Motor6D', true) or vtool:FindFirstChild('Motor', true)
+			if motor then
+				motor:Destroy()
+			end
+	
+			for _, part in vtool:QueryDescendants('BasePart') do
+				part.Material = ForceField.Enabled and Enum.Material.ForceField or part.Material
+				part.Color = ForceField.Enabled and Color3.fromHSV(ColorSl.Hue, ColorSl.Sat, ColorSl.Value) or part.Color
+			end
+	
+			for _, inst in old:QueryDescendants('BasePart, Texture, Decal') do
+				inst.LocalTransparencyModifier = 1
+			end
+		end
+	end
+	
+	Viewmodel = vape.Legit:CreateModule({
+		Name = 'Viewmodel',
+		Function = function(callback)
+			if callback then
+				Viewmodel:Clean(jb.ItemSystemController.OnLocalItemEquipped:Connect(function(item)
+					task.spawn(ToolAdded, item.Model)
+				end))
+	
+				Viewmodel:Clean(jb.ItemSystemController.OnLocalItemUnequipped:Connect(function()
+					task.spawn(function()
+						if vtool then
+							vtool:Destroy()
+							vtool = nil
+						end
+	
+						old = nil
+					end)
+				end))
+	
+				local equipped = jb.ItemSystemController:GetLocalEquipped()
+				if equipped then
+					task.spawn(ToolAdded, equipped.Model)
+				end
+	
+				Viewmodel:Clean(runService.RenderStepped:Connect(function(dt)
+					if handle then
+						moveSpring.Target = entitylib.isAlive and entitylib.character.RootPart.AssemblyLinearVelocity * 0.005 or Vector3.zero
+	
+						if Sway.Enabled then
+							if moveSpring.Target.Magnitude > 0.1 then
+								moveSpring.Target += (gameCamera.CFrame * CFrame.new(math.sin(tick() * 10) * 0.06, 0, 0)).Position - gameCamera.CFrame.Position
+							else
+								moveSpring.Target += (gameCamera.CFrame * CFrame.new(0, math.sin(tick()) * 0.04, 0)).Position - gameCamera.CFrame.Position
+							end
+						end
+	
+						local cf = (gameCamera.CFrame * CFrame.new(Horizontal.Value, Vertical.Value, -Depth.Value)) + moveSpring:Update(dt)
+						aimSpring.Target = aimTimer > os.clock() and CFrame.lookAt(cf.Position, aimVec).LookVector or gameCamera.CFrame.LookVector
+						handle.CFrame = CFrame.lookAlong(cf.Position, aimSpring:Update(dt)) * (CFrame.Angles(math.rad(math.max(shootTimer - os.clock(), 0) * 10), 0, 0) * CFrame.new(0, 0, math.max(shootTimer - os.clock(), 0)))
+						handle.AssemblyLinearVelocity = Vector3.zero
+					end
+				end))
+			else
+				if old then
+					for _, inst in old:QueryDescendants('BasePart, Texture, Decal') do
+						inst.LocalTransparencyModifier = 0
+					end
+	
+					old = nil
+				end
+	
+				if vtool then
+					vtool:Destroy()
+					vtool = nil
+					handle = nil
+				end
+			end
+		end,
+		Tooltip = 'Custom viewmodel for guns'
+	})
+	Depth = Viewmodel:CreateSlider({
+		Name = 'Depth',
+		Min = 0,
+		Max = 4,
+		Default = 4,
+		Decimal = 10
+	})
+	Horizontal = Viewmodel:CreateSlider({
+		Name = 'Horizontal',
+		Min = 0,
+		Max = 2.5,
+		Default = 2.5,
+		Decimal = 10
+	})
+	Vertical = Viewmodel:CreateSlider({
+		Name = 'Vertical',
+		Min = -1.5,
+		Max = 2,
+		Default = -1.5,
+		Decimal = 10
+	})
+	Sway = Viewmodel:CreateToggle({
+		Name = 'Sway Effect',
+		Default = true
+	})
+	ForceField = Viewmodel:CreateToggle({
+		Name = 'ForceField Effect',
+		Function = function(callback)
+			ColorSl.Object.Visible = callback
+			if callback and Viewmodel.Enabled then
+				Viewmodel:Toggle()
+				Viewmodel:Toggle()
+			end
+		end
+	})
+	ColorSl = Viewmodel:CreateColorSlider({
+		Name = 'Color',
+		Function = function(hue, sat, val)
+			if vtool then
+				for _, v in vtool:QueryDescendants('BasePart') do
+					v.Color = Color3.fromHSV(hue, sat, val)
+				end
+			end
+		end,
+		Visible = false
+	})
 end)

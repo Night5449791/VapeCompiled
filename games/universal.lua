@@ -48,6 +48,7 @@ local guiService = cloneref(game:GetService('GuiService'))
 local groupService = cloneref(game:GetService('GroupService'))
 local textChatService = cloneref(game:GetService('TextChatService'))
 local contextService = cloneref(game:GetService('ContextActionService'))
+local assetService = cloneref(game:GetService('AssetService'))
 local coreGui = cloneref(game:GetService('CoreGui'))
 local stats = cloneref(game:GetService('Stats'))
 
@@ -202,17 +203,18 @@ local frictionTable, oldfrict, entitylib = {}, {}
 local function updateVelocity()
 	if getTableSize(frictionTable) > 0 then
 		if entitylib.isAlive then
-			for _, v in entitylib.character.Character:GetChildren() do
-				if v:IsA('BasePart') and v.Name ~= 'HumanoidRootPart' and not oldfrict[v] then
-					oldfrict[v] = v.CustomPhysicalProperties or 'none'
-					v.CustomPhysicalProperties = PhysicalProperties.new(0.0001, 0.2, 0.5, 1, 1)
+			for _, part in entitylib.character.Character:GetChildren() do
+				if part:IsA('BasePart') and part.Name ~= 'HumanoidRootPart' and not oldfrict[part] then
+					oldfrict[part] = part.CustomPhysicalProperties or 'none'
+					part.CustomPhysicalProperties = PhysicalProperties.new(0.0001, 0.2, 0.5, 1, 1)
 				end
 			end
 		end
 	else
-		for i, v in oldfrict do
-			i.CustomPhysicalProperties = v ~= 'none' and v or nil
+		for part, data in oldfrict do
+			part.CustomPhysicalProperties = data ~= 'none' and data or nil
 		end
+
 		table.clear(oldfrict)
 	end
 end
@@ -238,8 +240,8 @@ local whitelist = {
 	tagcallback = {},
 	data = {WhitelistedUsers = {}},
 	hashes = setmetatable({}, {
-		__index = function(_, v)
-			return hash and hash.sha512(v..'SelfReport') or ''
+		__index = function(_, data)
+			return hash and hash.sha512(data..'SelfReport') or ''
 		end
 	}),
 	hooked = false,
@@ -312,8 +314,8 @@ SpeedMethods = {
 		root.CFrame += dest
 	end,
 	TP = function(options, moveDirection)
-		if options.TPTiming < tick() then
-			options.TPTiming = tick() + options.TPFrequency.Value
+		if options.TPTiming < os.clock() then
+			options.TPTiming = os.clock() + options.TPFrequency.Value
 			SpeedMethods.CFrame(options, moveDirection, 1)
 		end
 	end,
@@ -324,10 +326,11 @@ SpeedMethods = {
 	Pulse = function(options, moveDirection)
 		local root = entitylib.character.RootPart
 		local dt = math.max(options.Value.Value - entitylib.character.Humanoid.WalkSpeed, 0)
-		dt = dt * (1 - math.min((tick() % (options.PulseLength.Value + options.PulseDelay.Value)) / options.PulseLength.Value, 1))
+		dt = dt * (1 - math.min((os.clock() % (options.PulseLength.Value + options.PulseDelay.Value)) / options.PulseLength.Value, 1))
 		root.AssemblyLinearVelocity = (moveDirection * (entitylib.character.Humanoid.WalkSpeed + dt)) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
 	end
 }
+
 for name in SpeedMethods do
 	if not table.find(SpeedMethodList, name) then
 		table.insert(SpeedMethodList, name)
@@ -335,15 +338,15 @@ for name in SpeedMethods do
 end
 
 run(function()
-	entitylib.getUpdateConnections = function(ent)
-		local hum = ent.Humanoid
+	entitylib.getUpdateConnections = function(entity)
+		local hum = entity.Humanoid
 		return {
 			hum:GetPropertyChangedSignal('Health'),
 			hum:GetPropertyChangedSignal('MaxHealth'),
 			{
 				Connect = function()
-					ent.Friend = ent.Player and isFriend(ent.Player) or nil
-					ent.Target = ent.Player and isTarget(ent.Player) or nil
+					entity.Friend = entity.Player and isFriend(entity.Player) or nil
+					entity.Target = entity.Player and isTarget(entity.Player) or nil
 					return {
 						Disconnect = function() end
 					}
@@ -352,29 +355,29 @@ run(function()
 		}
 	end
 
-	entitylib.targetCheck = function(ent)
-		if ent.TeamCheck then
-			return ent:TeamCheck()
+	entitylib.targetCheck = function(entity)
+		if entity.TeamCheck then
+			return entity:TeamCheck()
 		end
-		if ent.NPC then return true end
-		if isFriend(ent.Player) then return false end
-		if not select(2, whitelist:get(ent.Player)) then return false end
+		if entity.NPC then return true end
+		if isFriend(entity.Player) then return false end
+		if not select(2, whitelist:get(entity.Player)) then return false end
 		if vape.Settings.Modules.Options['Teams by server'].Enabled then
 			if not lplr.Team then return true end
-			if not ent.Player.Team then return true end
-			if ent.Player.Team ~= lplr.Team then return true end
-			return #ent.Player.Team:GetPlayers() == #playersService:GetPlayers()
+			if not entity.Player.Team then return true end
+			if entity.Player.Team ~= lplr.Team then return true end
+			return #entity.Player.Team:GetPlayers() == #playersService:GetPlayers()
 		end
 		return true
 	end
 
-	entitylib.getEntityColor = function(ent)
-		ent = ent.Player
-		if not (ent and vape.Settings.Modules.Options['Use team color'].Enabled) then return end
-		if isFriend(ent, true) then
+	entitylib.getEntityColor = function(entity)
+		entity = entity.Player
+		if not (entity and vape.Settings.Modules.Options['Use team color'].Enabled) then return end
+		if isFriend(entity, true) then
 			return Color3.fromHSV(vape.Categories.Friends.Options['Friends color'].Hue, vape.Categories.Friends.Options['Friends color'].Sat, vape.Categories.Friends.Options['Friends color'].Value)
 		end
-		return tostring(ent.TeamColor) ~= 'White' and ent.TeamColor.Color or nil
+		return tostring(entity.TeamColor) ~= 'White' and entity.TeamColor.Color or nil
 	end
 
 	vape:Clean(function()
@@ -830,10 +833,10 @@ run(function()
 				terrain:Clear()
 			end
 
-			for _, v in workspace:GetChildren() do
-				if v ~= terrain and not v:IsDescendantOf(lplr.Character) and not v:IsA('Camera') then
-					v:Destroy()
-					v:ClearAllChildren()
+			for _, obj in workspace:GetChildren() do
+				if obj ~= terrain and not obj:IsDescendantOf(lplr.Character) and not obj:IsA('Camera') then
+					obj:Destroy()
+					obj:ClearAllChildren()
 				end
 			end
 		end,
@@ -891,9 +894,10 @@ run(function()
 		end,
 		trip = function()
 			if entitylib.isAlive then
-				if entitylib.character.RootPart.Velocity.Magnitude < 15 then
-					entitylib.character.RootPart.Velocity = entitylib.character.RootPart.CFrame.LookVector * 15
+				if entitylib.character.RootPart.AssemblyLinearVelocity.Magnitude < 15 then
+					entitylib.character.RootPart.AssemblyLinearVelocity = entitylib.character.RootPart.CFrame.LookVector * 15
 				end
+
 				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.FallingDown)
 			end
 		end,
@@ -916,7 +920,10 @@ run(function()
 
 	task.spawn(function()
 		repeat
-			if whitelist:update(whitelist.loaded) then return end
+			if whitelist:update(whitelist.loaded) then
+				return
+			end
+
 			task.wait(10)
 		until vape.Loaded == nil
 	end)
@@ -1104,6 +1111,49 @@ run(function()
 	})
 	ShowTarget = AimAssist:CreateToggle({
 		Name = 'Show target info'
+	})
+end)
+
+run(function()
+	local AutoClicker
+	local Mode
+	local CPS
+	
+	AutoClicker = vape.Categories.Combat:CreateModule({
+		Name = 'AutoClicker',
+		Function = function(callback)
+			if callback then
+				repeat
+					if Mode.Value == 'Tool' then
+						local tool = getTool()
+						if tool and inputService:IsMouseButtonPressed(0) then
+							tool:Activate()
+						end
+					else
+						if mouse1click and (isrbxactive or iswindowactive)() then
+							if not vape.gui.ScaledGui.ClickGui.Visible then
+								(Mode.Value == 'Click' and mouse1click or mouse2click)()
+							end
+						end
+					end
+	
+					task.wait(1 / CPS.GetRandomValue())
+				until not AutoClicker.Enabled
+			end
+		end,
+		Tooltip = 'Automatically clicks for you'
+	})
+	Mode = AutoClicker:CreateDropdown({
+		Name = 'Mode',
+		List = {'Tool', 'Click', 'RightClick'},
+		Tooltip = 'Tool - Automatically uses roblox tools (eg. swords)\nClick - Left click\nRightClick - Right click'
+	})
+	CPS = AutoClicker:CreateTwoSlider({
+		Name = 'CPS',
+		Min = 1,
+		Max = 20,
+		DefaultMin = 8,
+		DefaultMax = 12
 	})
 end)
 
@@ -1338,7 +1388,6 @@ run(function()
 					return
 				end
 
-				print(args)
 				if Projectile.Enabled then
 					local calc = prediction.SolveTrajectory(origin, ProjectileSpeed.Value, ProjectileGravity.Value, targetPart.Position, targetPart.Velocity, workspace.Gravity, entity.HipHeight, nil, ProjectileRaycast)
 					if not calc then
@@ -2504,6 +2553,43 @@ run(function()
 end)
 
 run(function()
+	local Jesus
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	
+	Jesus = vape.Categories.Blatant:CreateModule({
+		Name = 'Jesus',
+		Function = function(callback)
+			if callback then
+				local terrain = workspace:FindFirstChildWhichIsA('Terrain')
+				params.FilterDescendantsInstances = {terrain}
+				local Platform = Instance.new('Part')
+				Platform.CanQuery = false
+				Platform.Anchored = true
+				Platform.Size = Vector3.one
+				Platform.Transparency = 1
+				Platform.Parent = gameCamera
+	
+				Jesus:Clean(Platform)
+				Jesus:Clean(runService.PreSimulation:Connect(function()
+					if entitylib.isAlive then
+						local root = entitylib.character.RootPart
+						local ray = workspace:Raycast(root.Position, Vector3.new(0, -((root.Size.Y / 2) + entitylib.character.HipHeight + math.abs(root.AssemblyLinearVelocity.Y * 0.032)), 0), params)
+	
+						if ray and ray.Material == Enum.Material.Water then
+							Platform.CFrame = CFrame.new(ray.Position)
+						else
+							Platform.CFrame = CFrame.new(10000, 10000, 10000)
+						end
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Allow you to stand on terrain water'
+	})
+end)
+
+run(function()
 	local Killaura
 	local Targets
 	local CPS
@@ -2522,7 +2608,7 @@ run(function()
 	local Face
 	local Overlay = OverlapParams.new()
 	Overlay.FilterType = Enum.RaycastFilterType.Include
-	local Particles, Boxes, AttackDelay = {}, {}, tick()
+	local Particles, Boxes, AttackDelay = {}, {}, os.clock()
 	
 	local function getAttackData()
 		if Mouse.Enabled then
@@ -2540,8 +2626,9 @@ run(function()
 				repeat
 					local interest, tool = getAttackData()
 					local attacked = {}
+	
 					if interest then
-						local plrs = entitylib.AllPosition({
+						local entities = entitylib.AllPosition({
 							Range = SwingRange.Value,
 							Wallcheck = Targets.Walls.Enabled or nil,
 							Part = 'RootPart',
@@ -2550,31 +2637,38 @@ run(function()
 							Limit = Max.Value
 						})
 	
-						if #plrs > 0 then
-							local selfpos = entitylib.character.RootPart.Position
-							local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+						if #entities > 0 then
+							local localPos = entitylib.character.RootPart.Position
+							local localFacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
 	
-							for _, v in plrs do
-								local delta = (v.RootPart.Position - selfpos)
-								local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
-								if angle > (math.rad(AngleSlider.Value) / 2) then continue end
+							for _, entity in entities do
+								local delta = (entity.RootPart.Position - localPos)
+								local angle = math.abs(localFacing:Angle(delta * Vector3.new(1, 0, 1)))
+								if angle > (math.rad(AngleSlider.Value) / 2) then
+									continue
+								end
 	
+								targetinfo.Targets[entity] = os.clock() + 1
 								table.insert(attacked, {
-									Entity = v,
+									Entity = entity,
 									Check = delta.Magnitude > AttackRange.Value and BoxSwingColor or BoxAttackColor
 								})
-								targetinfo.Targets[v] = tick() + 1
 	
-								if AttackDelay < tick() then
-									AttackDelay = tick() + (1 / CPS.GetRandomValue())
+								if AttackDelay < os.clock() then
+									AttackDelay = os.clock() + (1 / CPS.GetRandomValue())
 									tool:Activate()
 								end
 	
-								if Lunge.Enabled and tool.GripUp.X == 0 then break end
-								if delta.Magnitude > AttackRange.Value then continue end
+								if Lunge.Enabled and tool.GripUp.X == 0 then
+									break
+								end
 	
-								Overlay.FilterDescendantsInstances = {v.Character}
-								for _, part in workspace:GetPartBoundsInBox(v.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
+								if delta.Magnitude > AttackRange.Value then
+									continue
+								end
+	
+								Overlay.FilterDescendantsInstances = {entity.Character}
+								for _, part in workspace:GetPartBoundsInBox(entity.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
 									firetouchinterest(interest.Parent, part, 1)
 									firetouchinterest(interest.Parent, part, 0)
 								end
@@ -2582,17 +2676,17 @@ run(function()
 						end
 					end
 	
-					for i, v in Boxes do
-						v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
-						if v.Adornee then
-							v.Color3 = Color3.fromHSV(attacked[i].Check.Hue, attacked[i].Check.Sat, attacked[i].Check.Value)
-							v.Transparency = 1 - attacked[i].Check.Opacity
+					for index, box in Boxes do
+						box.Adornee = attacked[index] and attacked[index].Entity.RootPart or nil
+						if box.Adornee then
+							box.Color3 = Color3.fromHSV(attacked[index].Check.Hue, attacked[index].Check.Sat, attacked[index].Check.Value)
+							box.Transparency = 1 - attacked[index].Check.Opacity
 						end
 					end
 	
-					for i, v in Particles do
-						v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
-						v.Parent = attacked[i] and gameCamera or nil
+					for index, particle in Particles do
+						particle.Position = attacked[index] and attacked[index].Entity.RootPart.Position or Vector3.new(math.huge, math.huge, math.huge)
+						particle.Parent = attacked[index] and gameCamera or nil
 					end
 	
 					if Face.Enabled and attacked[1] then
@@ -2603,18 +2697,20 @@ run(function()
 					task.wait()
 				until not Killaura.Enabled
 			else
-				for _, v in Boxes do
-					v.Adornee = nil
+				for _, box in Boxes do
+					box.Adornee = nil
 				end
 	
-				for _, v in Particles do
-					v.Parent = nil
+				for _, particle in Particles do
+					particle.Parent = nil
 				end
 			end
 		end,
 		Tooltip = 'Attack players around you\nwithout aiming at them.'
 	})
-	Targets = Killaura:CreateTargets({Players = true})
+	Targets = Killaura:CreateTargets({
+		Players = true
+	})
 	CPS = Killaura:CreateTwoSlider({
 		Name = 'Attacks per Second',
 		Min = 1,
@@ -2652,27 +2748,32 @@ run(function()
 		Max = 10,
 		Default = 10
 	})
-	Mouse = Killaura:CreateToggle({Name = 'Require mouse down'})
-	Lunge = Killaura:CreateToggle({Name = 'Sword lunge only'})
+	Mouse = Killaura:CreateToggle({
+		Name = 'Require mouse down'
+	})
+	Lunge = Killaura:CreateToggle({
+		Name = 'Sword lunge only'
+	})
 	Killaura:CreateToggle({
 		Name = 'Show target',
 		Function = function(callback)
 			BoxSwingColor.Object.Visible = callback
 			BoxAttackColor.Object.Visible = callback
+	
 			if callback then
 				for i = 1, 10 do
 					local box = Instance.new('BoxHandleAdornment')
 					box.Adornee = nil
 					box.AlwaysOnTop = true
-					box.Size = Vector3.new(3, 5, 3)
 					box.CFrame = CFrame.new(0, -0.5, 0)
+					box.Size = Vector3.new(3, 5, 3)
 					box.ZIndex = 0
-					box.Parent = vape.gui
+					box.Parent = vape.holder
 					Boxes[i] = box
 				end
 			else
-				for _, v in Boxes do
-					v:Destroy()
+				for _, box in Boxes do
+					box:Destroy()
 				end
 				table.clear(Boxes)
 			end
@@ -2698,6 +2799,7 @@ run(function()
 			ParticleColor1.Object.Visible = callback
 			ParticleColor2.Object.Visible = callback
 			ParticleSize.Object.Visible = callback
+	
 			if callback then
 				for i = 1, 10 do
 					local part = Instance.new('Part')
@@ -2726,8 +2828,8 @@ run(function()
 					Particles[i] = part
 				end
 			else
-				for _, v in Particles do
-					v:Destroy()
+				for _, particle in Particles do
+					particle:Destroy()
 				end
 				table.clear(Particles)
 			end
@@ -2737,8 +2839,8 @@ run(function()
 		Name = 'Texture',
 		Default = 'rbxassetid://14736249347',
 		Function = function()
-			for _, v in Particles do
-				v.ParticleEmitter.Texture = ParticleTexture.Value
+			for _, particle in Particles do
+				particle.ParticleEmitter.Texture = ParticleTexture.Value
 			end
 		end,
 		Darker = true,
@@ -2747,8 +2849,8 @@ run(function()
 	ParticleColor1 = Killaura:CreateColorSlider({
 		Name = 'Color Begin',
 		Function = function(hue, sat, val)
-			for _, v in Particles do
-				v.ParticleEmitter.Color = ColorSequence.new({
+			for _, particle in Particles do
+				particle.ParticleEmitter.Color = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, sat, val)),
 					ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
 				})
@@ -2760,8 +2862,8 @@ run(function()
 	ParticleColor2 = Killaura:CreateColorSlider({
 		Name = 'Color End',
 		Function = function(hue, sat, val)
-			for _, v in Particles do
-				v.ParticleEmitter.Color = ColorSequence.new({
+			for _, particle in Particles do
+				particle.ParticleEmitter.Color = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
 					ColorSequenceKeypoint.new(1, Color3.fromHSV(hue, sat, val))
 				})
@@ -2777,14 +2879,16 @@ run(function()
 		Default = 0.2,
 		Decimal = 100,
 		Function = function(val)
-			for _, v in Particles do
-				v.ParticleEmitter.Size = NumberSequence.new(val)
+			for _, particle in Particles do
+				particle.ParticleEmitter.Size = NumberSequence.new(val)
 			end
 		end,
 		Darker = true,
 		Visible = false
 	})
-	Face = Killaura:CreateToggle({Name = 'Face target'})
+	Face = Killaura:CreateToggle({
+		Name = 'Face target'
+	})
 end)
 
 run(function()
@@ -2796,21 +2900,23 @@ run(function()
 		Name = 'LongJump',
 		Function = function(callback)
 			if callback then
-				local exempt = tick() + 0.1
+				local enableTime = os.clock() + 0.1
 				LongJump:Clean(runService.PreSimulation:Connect(function(dt)
 					if entitylib.isAlive then
-						if entitylib.character.Humanoid.FloorMaterial ~= Enum.Material.Air then
-							if exempt < tick() and AutoDisable.Enabled then
+						local hum = entitylib.character.Humanoid
+						local root = entitylib.character.RootPart
+	
+						if hum.FloorMaterial ~= Enum.Material.Air then
+							if enableTime < os.clock() and AutoDisable.Enabled then
 								if LongJump.Enabled then
 									LongJump:Toggle()
 								end
 							else
-								entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+								hum:ChangeState(Enum.HumanoidStateType.Jumping)
 							end
 						end
 	
-						local root = entitylib.character.RootPart
-						local dir = entitylib.character.Humanoid.MoveDirection * Value.Value
+						local dir = hum.MoveDirection * Value.Value
 						if Mode.Value == 'Velocity' then
 							root.AssemblyLinearVelocity = dir + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
 						elseif Mode.Value == 'Impulse' then
@@ -3129,6 +3235,7 @@ run(function()
 	local AutoJump
 	local AutoJumpCustom
 	local AutoJumpValue
+	local CustomProperties
 	local w, s, a, d = 0, 0, 0, 0
 	
 	Speed = vape.Categories.Blatant:CreateModule({
@@ -3252,7 +3359,7 @@ run(function()
 			Darker = true,
 			Visible = false
 		}),
-		TPTiming = tick(),
+		TPTiming = os.clock(),
 		rayCheck = RaycastParams.new()
 	}
 	Options.rayCheck.RespectCanCollide = true
@@ -3631,9 +3738,6 @@ run(function()
 		Name = 'Timer',
 		Function = function(callback)
 			if callback then
-				setfflag('SimEnableStepPhysics', 'True')
-				setfflag('SimEnableStepPhysicsSelective', 'True')
-	
 				Timer:Clean(runService.RenderStepped:Connect(function(dt)
 					if Value.Value > 1 then
 						runService:Pause()
@@ -3654,6 +3758,146 @@ run(function()
 end)
 
 run(function()
+	local Arrows
+	local Targets
+	local Color
+	local Teammates
+	local Distance
+	local DistanceLimit
+	local Reference = {}
+	local Folder = Instance.new('Folder')
+	Folder.Parent = vape.gui
+	
+	local function Added(ent)
+		if not Targets.Players.Enabled and ent.Player then return end
+		if not Targets.NPCs.Enabled and ent.NPC then return end
+		if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) and (not ent.Friend) then return end
+		if vape.ThreadFix then
+			setthreadidentity(8)
+		end
+	
+		local arrow = Instance.new('ImageLabel')
+		arrow.Size = UDim2.fromOffset(256, 256)
+		arrow.Position = UDim2.fromScale(0.5, 0.5)
+		arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+		arrow.BackgroundTransparency = 1
+		arrow.BorderSizePixel = 0
+		arrow.Visible = false
+		arrow.Image = getvapeasset('newvape/assets/new/arrow.png')
+		arrow.ImageColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+		arrow.Parent = Folder
+		Reference[ent] = arrow
+	end
+	
+	local function Removed(ent)
+		local v = Reference[ent]
+		if v then
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+	
+			Reference[ent] = nil
+			v:Destroy()
+		end
+	end
+	
+	local function ColorFunc(hue, sat, val)
+		local color = Color3.fromHSV(hue, sat, val)
+		for ent, EntityArrow in Reference do
+			EntityArrow.ImageColor3 = entitylib.getEntityColor(ent) or color
+		end
+	end
+	
+	local function Loop()
+		for ent, arrow in Reference do
+			if Distance.Enabled then
+				local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+				if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+					arrow.Visible = false
+					continue
+				end
+			end
+	
+			local _, rootVis = gameCamera:WorldToScreenPoint(ent.RootPart.Position)
+			arrow.Visible = not rootVis
+			if rootVis then continue end
+	
+			local dir = CFrame.lookAlong(gameCamera.CFrame.Position, gameCamera.CFrame.LookVector * Vector3.new(1, 0, 1)):PointToObjectSpace(ent.RootPart.Position)
+			arrow.Rotation = math.deg(math.atan2(dir.Z, dir.X))
+		end
+	end
+	
+	Arrows = vape.Categories.Render:CreateModule({
+		Name = 'Arrows',
+		Function = function(callback)
+			if callback then
+				Arrows:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
+				for _, v in entitylib.List do
+					if Reference[v] then Removed(v) end
+					Added(v)
+				end
+				Arrows:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+					if Reference[ent] then Removed(ent) end
+					Added(ent)
+				end))
+				Arrows:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+					ColorFunc(Color.Hue, Color.Sat, Color.Value)
+				end))
+				Arrows:Clean(runService.RenderStepped:Connect(Loop))
+			else
+				for i in Reference do
+					Removed(i)
+				end
+			end
+		end,
+		Tooltip = 'Draws arrows on screen when entities\nare out of your field of view.'
+	})
+	Targets = Arrows:CreateTargets({
+		Players = true,
+		Function = function()
+			if Arrows.Enabled then
+				Arrows:Toggle()
+				Arrows:Toggle()
+			end
+		end
+	})
+	Color = Arrows:CreateColorSlider({
+		Name = 'Player Color',
+		Function = function(hue, sat, val)
+			if Arrows.Enabled then
+				ColorFunc(hue, sat, val)
+			end
+		end,
+	})
+	Teammates = Arrows:CreateToggle({
+		Name = 'Priority Only',
+		Function = function()
+			if Arrows.Enabled then
+				Arrows:Toggle()
+				Arrows:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides teammates & non targetable entities'
+	})
+	Distance = Arrows:CreateToggle({
+		Name = 'Distance Check',
+		Function = function(callback)
+			DistanceLimit.Object.Visible = callback
+		end
+	})
+	DistanceLimit = Arrows:CreateTwoSlider({
+		Name = 'Player Distance',
+		Min = 0,
+		Max = 256,
+		DefaultMin = 0,
+		DefaultMax = 64,
+		Darker = true,
+		Visible = false
+	})
+end)
+
+run(function()
 	local Chams
 	local Targets
 	local Mode
@@ -3665,7 +3909,7 @@ run(function()
 	local Walls
 	local Reference = {}
 	local Folder = Instance.new('Folder')
-	Folder.Parent = vape.gui
+	Folder.Parent = vape.holder
 	
 	local function Added(ent)
 		if not Targets.Players.Enabled and ent.Player then return end
@@ -5166,6 +5410,127 @@ run(function()
 end)
 
 run(function()
+	local PlayerModel
+	local Scale
+	local Local
+	local Mesh
+	local Texture
+	local Rots = {}
+	local models = {}
+	
+	local function addMesh(ent)
+		if vape.ThreadFix then 
+			setthreadidentity(8)
+		end
+		local root = ent.RootPart
+		local part = Instance.new('Part')
+		part.Size = Vector3.new(3, 3, 3)
+		part.CFrame = root.CFrame * CFrame.Angles(math.rad(Rots[1].Value), math.rad(Rots[2].Value), math.rad(Rots[3].Value))
+		part.CanCollide = false
+		part.CanQuery = false
+		part.Massless = true
+		part.Parent = workspace
+		local meshd = Instance.new('SpecialMesh')
+		meshd.MeshId = Mesh.Value
+		meshd.TextureId = Texture.Value
+		meshd.Scale = Vector3.one * Scale.Value
+		meshd.Parent = part
+		local weld = Instance.new('WeldConstraint')
+		weld.Part0 = part
+		weld.Part1 = root
+		weld.Parent = part
+		models[root] = part
+	end
+	
+	local function removeMesh(ent)
+		if models[ent.RootPart] then 
+			models[ent.RootPart]:Destroy()
+			models[ent.RootPart] = nil
+		end
+	end
+	
+	PlayerModel = vape.Categories.Render:CreateModule({
+		Name = 'PlayerModel',
+		Function = function(callback)
+			if callback then 
+				if Local.Enabled then 
+					PlayerModel:Clean(entitylib.Events.LocalAdded:Connect(addMesh))
+					PlayerModel:Clean(entitylib.Events.LocalRemoved:Connect(removeMesh))
+					if entitylib.isAlive then 
+						task.spawn(addMesh, entitylib.character)
+					end
+				end
+				PlayerModel:Clean(entitylib.Events.EntityAdded:Connect(addMesh))
+				PlayerModel:Clean(entitylib.Events.EntityRemoved:Connect(removeMesh))
+				for _, ent in entitylib.List do 
+					task.spawn(addMesh, ent)
+				end
+			else
+				for _, part in models do 
+					part:Destroy()
+				end
+				table.clear(models)
+			end
+		end,
+		Tooltip = 'Change the player models to a Mesh'
+	})
+	Scale = PlayerModel:CreateSlider({
+		Name = 'Scale',
+		Min = 0,
+		Max = 2,
+		Default = 1,
+		Decimal = 100,
+		Function = function(val)
+			for _, part in models do 
+				part.Mesh.Scale = Vector3.one * val
+			end
+		end
+	})
+	for _, name in {'Rotation X', 'Rotation Y', 'Rotation Z'} do 
+		table.insert(Rots, PlayerModel:CreateSlider({
+			Name = name,
+			Min = 0,
+			Max = 360,
+			Function = function(val)
+				for root, part in models do 
+					part.WeldConstraint.Enabled = false
+					part.CFrame = root.CFrame * CFrame.Angles(math.rad(Rots[1].Value), math.rad(Rots[2].Value), math.rad(Rots[3].Value))
+					part.WeldConstraint.Enabled = true
+				end
+			end
+		}))
+	end
+	Local = PlayerModel:CreateToggle({
+		Name = 'Local',
+		Function = function()
+			if PlayerModel.Enabled then 
+				PlayerModel:Toggle()
+				PlayerModel:Toggle()
+			end
+		end
+	})
+	Mesh = PlayerModel:CreateTextBox({
+		Name = 'Mesh',
+		Placeholder = 'mesh id',
+		Function = function()
+			for _, part in models do 
+				part.Mesh.MeshId = Mesh.Value
+			end
+		end
+	})
+	Texture = PlayerModel:CreateTextBox({
+		Name = 'Texture',
+		Placeholder = 'texture id',
+		Function = function()
+			for _, part in models do 
+				part.Mesh.TextureId = Texture.Value
+			end
+		end
+	})
+	
+end)
+
+run(function()
 	local Radar
 	local Targets
 	local DotStyle
@@ -5346,7 +5711,7 @@ run(function()
 	local FillTransparency
 	local Reference = {}
 	local Folder = Instance.new('Folder')
-	Folder.Parent = vape.gui
+	Folder.Parent = vape.holder
 	
 	local function Add(v)
 		if not table.find(List.ListEnabled, v.Name) then return end
@@ -5572,21 +5937,21 @@ run(function()
 		infoholder.Position = UDim2.fromScale(newside and 1 or 0, 0)
 		infoholder.AnchorPoint = Vector2.new(newside and 1 or 0, 0)
 	end))
-	local sessioninfocorner = Instance.new('UICorner')
-	sessioninfocorner.CornerRadius = UDim.new(0, 5)
-	sessioninfocorner.Parent = infoholder
+	local infocorner = Instance.new('UICorner')
+	infocorner.CornerRadius = UDim.new(0, 5)
+	infocorner.Parent = infoholder
 	infolabel = Instance.new('TextLabel')
-	infolabel.Size = UDim2.new(1, -16, 1, -16)
-	infolabel.Position = UDim2.fromOffset(8, 8)
 	infolabel.BackgroundTransparency = 1
+	infolabel.Font = Enum.Font.Arial
+	infolabel.Position = UDim2.fromOffset(8, 8)
+	infolabel.RichText = true
+	infolabel.Size = UDim2.new(1, -16, 1, -16)
 	infolabel.TextXAlignment = Enum.TextXAlignment.Left
 	infolabel.TextYAlignment = Enum.TextYAlignment.Top
 	infolabel.TextSize = 16
 	infolabel.TextColor3 = Color3.new(1, 1, 1)
 	infolabel.TextStrokeColor3 = Color3.new()
 	infolabel.TextStrokeTransparency = 0.8
-	infolabel.Font = Enum.Font.Arial
-	infolabel.RichText = true
 	infolabel.Parent = infoholder
 	infostroke = Instance.new('UIStroke')
 	infostroke.Enabled = false
@@ -5614,6 +5979,815 @@ run(function()
 end)
 
 run(function()
+	--[[
+		Lua OTP Library https://github.com/tilkinsc/LuaOTP/
+		SpotAPI https://github.com/Aran404/SpotAPI
+	
+		MIT License
+	
+		Copyright (c) 2021 Cody Tilkins
+	
+		Permission is hereby granted, free of charge, to any person obtaining a copy
+		of this software and associated documentation files (the "Software"), to deal
+		in the Software without restriction, including without limitation the rights
+		to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+		copies of the Software, and to permit persons to whom the Software is
+		furnished to do so, subject to the following conditions:
+	
+		The above copyright notice and this permission notice shall be included in all
+		copies or substantial portions of the Software.
+	
+		THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+		IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+		FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+		AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+		LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+		OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+		SOFTWARE.
+	]]
+	
+	local Spotify
+	local SpotifyHandler = {Cache = {}}
+	local BorderColor = {}
+	local holder
+	local stroke
+	
+	local function addCorner(parent, radius)
+		local corner = Instance.new('UICorner')
+		corner.CornerRadius = radius or UDim.new(0, 5)
+		corner.Parent = parent
+	
+		return corner
+	end
+	
+	Spotify = vape:CreateOverlay({
+		Name = 'Spotify',
+		Icon = getvapeasset('newvape/assets/new/spotify.png'),
+		Size = UDim2.fromOffset(16, 16),
+		Position = UDim2.fromOffset(12, 13),
+		Function = function(callback)
+			if callback then
+				Spotify:Clean(task.spawn(function()
+					SpotifyHandler:Start()
+				end))
+			else
+				if SpotifyHandler.Socket then
+					SpotifyHandler.Socket:Close()
+					SpotifyHandler.Socket = nil
+				end
+			end
+		end
+	})
+	Spotify:CreateColorSlider({
+		Name = 'Background Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			holder.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			holder.BackgroundTransparency = 1 - opacity
+		end
+	})
+	BorderColor = Spotify:CreateColorSlider({
+		Name = 'Border Color',
+		Function = function(hue, sat, val, opacity)
+			stroke.Color = Color3.fromHSV(hue, sat, val)
+			stroke.Transparency = 1 - opacity
+		end,
+		Darker = true,
+		Visible = false
+	})
+	Spotify:CreateToggle({
+		Name = 'Border',
+		Function = function(callback)
+			stroke.Enabled = callback
+			BorderColor.Object.Visible = callback
+		end
+	})
+	
+	holder = Instance.new('Frame')
+	holder.BackgroundColor3 = Color3.new()
+	holder.BackgroundTransparency = 0.5
+	holder.Size = UDim2.fromOffset(180, 55)
+	holder.Parent = Spotify.Children
+	addBlur(holder)
+	addCorner(holder)
+	local title = Instance.new('TextLabel')
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.Arial
+	title.Position = UDim2.fromOffset(6, 6)
+	title.Size = UDim2.new(1, -6, 0, 16)
+	title.TextColor3 = Color3.new(1, 1, 1)
+	title.TextSize = 16
+	title.TextTruncate = Enum.TextTruncate.AtEnd
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = holder
+	local artist = Instance.new('TextLabel')
+	artist.BackgroundTransparency = 1
+	artist.Font = Enum.Font.Arial
+	artist.Position = UDim2.fromOffset(7, 24)
+	artist.Size = UDim2.new(1, -7, 0, 14)
+	artist.TextColor3 = Color3.new(0.7, 0.7, 0.7)
+	artist.TextSize = 14
+	artist.TextTruncate = Enum.TextTruncate.AtEnd
+	artist.TextXAlignment = Enum.TextXAlignment.Left
+	artist.Parent = holder
+	local progress = Instance.new('Frame')
+	progress.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	progress.Position = UDim2.fromOffset(6, 43)
+	progress.Size = UDim2.new(1, -46, 0, 4)
+	progress.Parent = holder
+	addCorner(progress)
+	local fill = Instance.new('Frame')
+	fill.BackgroundColor3 = Color3.fromHSV(0.46, 0.96, 0.52)
+	fill.Size = UDim2.fromScale(0.4, 1)
+	fill.Parent = progress
+	addCorner(fill)
+	local duration = Instance.new('TextLabel')
+	duration.BackgroundColor3 = Color3.new(1, 1, 1)
+	duration.BackgroundTransparency = 1
+	duration.BorderColor3 = Color3.new()
+	duration.BorderSizePixel = 0
+	duration.Font = Enum.Font.Arial
+	duration.Position = UDim2.new(1, -32, 0, 37)
+	duration.Size = UDim2.fromOffset(40, 13)
+	duration.Text = '0:00'
+	duration.TextColor3 = Color3.fromRGB(170, 170, 170)
+	duration.TextSize = 13
+	duration.TextXAlignment = Enum.TextXAlignment.Left
+	duration.Parent = holder
+	stroke = Instance.new('UIStroke')
+	stroke.Enabled = false
+	stroke.Color = Color3.fromHSV(0.44, 1, 1)
+	stroke.Parent = holder
+	
+	do
+		local function numberToByteString(number)
+			local bytes = {}
+			while number ~= 0 do
+				table.insert(bytes, string.char(bit32.band(number, 0xff)))
+				number = bit32.rshift(number, 8)
+			end
+	
+			return string.rep('\0', math.max(0, 8 - #bytes)) .. table.concat(bytes, ''):reverse()
+		end
+	
+		local function randomHexString()
+			local data = table.create(20)
+			for i = 1, 20 do
+				data[i] = string.format('%02x', math.random() * 255)
+			end
+			return table.concat(data)
+		end
+	
+		local function readURLAndConfig(code)
+			local appCfg = code:find('appServerConfig\" type=\"text\/plain\">')
+			return code:match('(https://[^"\']+/web%-player%.[0-9a-f]+%.js)'), appCfg and httpService:JSONDecode(base64decode(code:sub(appCfg + 35, code:find('<', appCfg + 1) - 1))) or nil
+		end
+	
+		local function readOTPCodes(code)
+			local secret = code:find("{secret:'")
+			if secret then
+				local version = code:find('%,version', secret + 1)
+				local endbracket = code:find('}', version + 1)
+				local otpCode = code:sub(secret + 9, version - 2)
+				local hashedOtp = table.create(#otpCode)
+				for i = 1, #otpCode do
+					hashedOtp[i] = bit32.bxor(string.byte(otpCode:sub(i, i)), (i - 1) % 33 + 9)
+				end
+	
+				return table.concat(hashedOtp, ''), tonumber(code:sub(version + 9, endbracket - 1))
+			end
+		end
+	
+		local function readFetchHash(code)
+			local query = code:find('fetchEntitiesForRecentlyPlayed","query",')
+			local ending = code:find('",null', query)
+			return query and ending and code:sub(query + 41, ending - 1)
+		end
+	
+		local function stringToBytes(str)
+			local bytes = table.create(#str)
+			for i = 1, #str do
+				bytes[i] = string.byte(str:sub(i, i))
+			end
+	
+			return bytes
+		end
+	
+		local function safeRequest(...)
+			local success, req = pcall(request, ...)
+			return success and req or {Success = false, Body = req}
+		end
+	
+		local function generateOTP(input, secret)
+			local hash = base64decode(crypt.hmac(secret, numberToByteString(input), 'sha1'))
+			local offset = bit32.band(string.byte(hash:sub(-1, -1)), 0x0f) + 1
+			local bHash = stringToBytes(hash)
+	
+			local code = bit32.bor(
+				bit32.lshift(bit32.band(bHash[offset], 0x7f), 24),
+				bit32.lshift(bit32.band(bHash[offset + 1], 0xff), 16),
+				bit32.lshift(bit32.band(bHash[offset + 2], 0xff), 8),
+				bit32.lshift(bit32.band(bHash[offset + 3], 0xff), 0)
+			)
+	
+			local str_code = tostring(math.floor(code % (10 ^ 6)))
+			while #str_code < 6 do
+				str_code = '0' .. str_code
+			end
+	
+			return str_code
+		end
+	
+		function SpotifyHandler:Callback(data)
+			if data.player_state then
+				local currentTime = (data.timestamp / 1000)
+				local posAsTime = tonumber(data.player_state.position_as_of_timestamp) / 1000
+				local diff = currentTime - (tonumber(data.player_state.timestamp) / 1000)
+				self.playPosition = posAsTime + diff
+				self.playRate = data.player_state.playback_speed
+				self.playDuration = tonumber(data.player_state.duration) / 1000
+	
+				if data.player_state.track then
+					self:RequestCache(data.player_state.track.uri)
+					self.track = data.player_state.track.uri
+					title.Text = data.player_state.track.metadata.title
+					artist.Text = table.concat(self.Cache[self.track].Artists, ', ')
+				end
+			end
+		end
+	
+		function SpotifyHandler:Refresh()
+			local mainPage = safeRequest({
+				Url = 'https://open.spotify.com',
+				Method = 'GET',
+				Headers = self.Headers
+			})
+	
+			if mainPage.Success then
+				local scriptUrl, appCfg = readURLAndConfig(mainPage.Body)
+	
+				if scriptUrl and appCfg then
+					local scriptCode = safeRequest({
+						Url = scriptUrl,
+						Method = 'GET',
+						Headers = self.Headers
+					})
+	
+					if scriptCode.Success then
+						local fetchKey = readFetchHash(scriptCode.Body)
+						local otpCode, version = readOTPCodes(scriptCode.Body)
+	
+						if otpCode and version then
+							local localKey = generateOTP(os.time() // 30, otpCode)
+							local serverKey = generateOTP(appCfg.serverTime // 30, otpCode)
+							local authData = safeRequest({
+								Url = 'https://open.spotify.com/api/token?reason=init&productType=web-player&totp='..localKey..'&totpServer='..serverKey..'&totpVer='..version,
+								Method = 'GET',
+								Headers = self.Headers
+							})
+	
+							if authData.Success then
+								authData = httpService:JSONDecode(authData.Body)
+	
+								return {
+									clientId = authData.clientId,
+									clientVersion = appCfg.clientVersion,
+									correlationId = appCfg.correlationId,
+									fetchKey = fetchKey,
+									accessToken = authData.accessToken,
+									expireTime = authData.accessTokenExpirationTimestampMs / 1000
+								}
+							else
+								error('Failed to get auth data: '..authData.Body)
+							end
+						else
+							error('Failed to get OTP codes')
+						end
+					else
+						error('Failed to get script data: '..scriptCode.Body)
+					end
+				else
+					error('Failed to get script url or app config.')
+				end
+			else
+				error('Failed to get main page: '..mainPage.Body)
+			end
+		end
+	
+		function SpotifyHandler:GetSession()
+			local sessionData = safeRequest({
+				Url = 'https://clienttoken.spotify.com/v1/clienttoken',
+				Method = 'POST',
+				Headers = {
+					Accept = 'application/json',
+					['Content-Type'] = 'application/json',
+					Origin = 'https://open.spotify.com',
+					Referer = 'https://open.spotify.com/',
+					['User-Agent'] = self.Headers['User-Agent']
+				},
+				Body = httpService:JSONEncode({
+					client_data = {
+						client_id = self.Data.clientId,
+						client_version = self.Data.clientVersion,
+						js_sdk_data = {
+							device_brand = 'unknown',
+							device_id = self.Data.correlationId,
+							device_model = 'unknown',
+							device_type = 'computer',
+							os = 'windows',
+							os_version = 'NT 10.0'
+						}
+					}
+				})
+			})
+	
+			if sessionData.Success then
+				sessionData = httpService:JSONDecode(sessionData.Body)
+				return sessionData.granted_token.token
+			else
+				error('Failed to get device session: '..sessionData.Body)
+			end
+		end
+	
+		function SpotifyHandler:RequestCache(id)
+			if not self.Cache[id] then
+				self.Cache[id] = {Artists = {'None'}}
+	
+				if self.Data.fetchKey then
+					task.spawn(function()
+						local dataRequest = safeRequest({
+							Url = 'https://api-partner.spotify.com/pathfinder/v2/query',
+							Method = 'POST',
+							Headers = {
+								Accept = 'application/json',
+								Authorization = 'Bearer '..self.Data.accessToken,
+								['Content-Type'] = 'application/json',
+								['client-token'] = self.clientToken,
+								Origin = 'https://open.spotify.com',
+								Referer = 'https://open.spotify.com/',
+								['User-Agent'] = self.Headers['User-Agent']
+							},
+							Body = httpService:JSONEncode({
+								extensions = {
+									persistedQuery = {
+										sha256Hash = self.Data.fetchKey,
+										version = 1
+									}
+								},
+								variables = {
+									uris = {id}
+								},
+								operationName = 'fetchEntitiesForRecentlyPlayed'
+							})
+						})
+	
+						if dataRequest.Success then
+							local data = httpService:JSONDecode(dataRequest.Body)
+	
+							if data.data.lookup[1] then
+								table.clear(self.Cache[id].Artists)
+	
+								for _, artist in data.data.lookup[1].data.artists.items do
+									table.insert(self.Cache[id].Artists, artist.profile.name)
+								end
+	
+								if self.track == id then
+									artist.Text = table.concat(self.Cache[id].Artists, ', ')
+								end
+							end
+						end
+					end)
+				end
+			end
+		end
+	
+		function SpotifyHandler:RegisterDevice(connectionId)
+			if not self.connectionId then
+				self.connectionId = connectionId
+	
+				local sessionId = randomHexString()
+				local deviceReq = safeRequest({
+					Url = 'https://'..self.Dealer.Client..'/track-playback/v1/devices',
+					Method = 'POST',
+					Headers = {
+						Authorization = 'Bearer '..self.Data.accessToken,
+						['Content-Type'] = 'application/json',
+						['client-token'] = self.clientToken,
+						Origin = 'https://open.spotify.com',
+						Referer = 'https://open.spotify.com/',
+						['User-Agent'] = self.Headers['User-Agent']
+					},
+					Body = httpService:JSONEncode({
+						device = {
+							brand = 'spotify',
+							capabilities = {
+								change_volume = true,
+								enable_play_token = true,
+								supports_file_media_type = true,
+								play_token_lost_behavior = 'pause',
+								disable_connect = false,
+								audio_podcasts = true,
+								video_playback = true,
+								manifest_formats = {
+									'file_ids_mp3',
+									'file_urls_mp3',
+									'manifest_urls_audio_ad',
+									'manifest_ids_video',
+									'file_urls_external',
+									'file_ids_mp4',
+									'file_ids_mp4_dual',
+									'manifest_urls_audio_ad'
+								},
+								supports_preferred_media_type = true,
+								supports_playback_offsets = true,
+								supports_playback_speed = true
+							},
+							device_id = sessionId,
+							device_type = 'computer',
+							metadata = {},
+							model = 'web_player',
+							name = 'Web Player (Firefox)',
+							platform_identifier = 'web_player windows 10;firefox 154.0;desktop',
+							is_group = false,
+							is_public = false,
+							correlation_id = self.Data.correlationId,
+							client_version = 'harmony:4.78.0-f1c77f179'
+						},
+						outro_endcontent_snooping = false,
+						connection_id = self.connectionId,
+						client_version = 'harmony:4.78.0-f1c77f179',
+						volume = 65535
+					}):gsub('"metadata":%[%]', '"metadata":{}')
+				})
+	
+				if deviceReq.Success then
+					local registerReq = safeRequest({
+						Url = 'https://'..self.Dealer.Client..'/connect-state/v1/devices/hobs_'..sessionId,
+						Method = 'PUT',
+						Headers = {
+							Accept = 'application/json',
+							Authorization = 'Bearer '..self.Data.accessToken,
+							['client-token'] = self.clientToken,
+							Origin = 'https://open.spotify.com',
+							Referer = 'https://open.spotify.com/',
+							['x-spotify-connection-id'] = self.connectionId,
+							['User-Agent'] = self.Headers['User-Agent']
+						},
+						Body = httpService:JSONEncode({
+							member_type = 'CONNECT_STATE',
+							device = {
+								device_info = {
+									capabilities = {
+										can_be_player = false,
+										hidden = true,
+										needs_full_player_state = true
+									}
+								}
+							}
+						})
+					})
+	
+					if registerReq.Success then
+						self:Callback(httpService:JSONDecode(registerReq.Body))
+					end
+				else
+					notif('Spotify', 'Failed to register device: '..deviceReq.Body, 30, 'alert')
+				end
+			end
+		end
+	
+		function SpotifyHandler:RegisterSocket()
+			if not self.Dealer then
+				local dealerReq = safeRequest({
+					Url = 'https://apresolve.spotify.com/?type=dealer-g2&type=spclient',
+					Method = 'GET',
+					Headers = {
+						Origin = 'https://open.spotify.com',
+						Referer = 'https://open.spotify.com/',
+						['User-Agent'] = self.Headers['User-Agent']
+					}
+				})
+	
+				if dealerReq.Success then
+					dealerReq = httpService:JSONDecode(dealerReq.Body)
+	
+					if dealerReq['dealer-g2'][1] and dealerReq.spclient[1] then
+						self.Dealer = {
+							Dealer = dealerReq['dealer-g2'][1]:sub(1, dealerReq['dealer-g2'][1]:find(':') - 1),
+							Client = dealerReq.spclient[1]:sub(1, dealerReq.spclient[1]:find(':') - 1)
+						}
+					else
+						notif('Spotify', 'No available dealers', 30, 'alert')
+						return
+					end
+				else
+					notif('Spotify', 'Failed to get dealers: '..dealerReq.Body, 30, 'alert')
+					return
+				end
+			end
+	
+			self.Socket = WebSocket.connect('wss://'..self.Dealer.Dealer..'/?access_token='..self.Data.accessToken)
+			self.syncTime = os.clock() - 6
+	
+			self.Socket.OnMessage:Connect(function(payload)
+				payload = httpService:JSONDecode(payload)
+	
+				if payload.headers and payload.headers['Spotify-Connection-Id'] then
+					self.syncTime = nil
+					self:RegisterDevice(payload.headers['Spotify-Connection-Id'], dealer)
+				elseif payload.payloads and #payload.payloads > 0 then
+					for _, data in payload.payloads do
+						if data.cluster and data.cluster.player_state then
+							self:Callback(data.cluster)
+							break
+						end
+					end
+				elseif payload.type == 'pong' then
+					self.syncTime = nil
+				end
+			end)
+	
+			self.Socket.OnClose:Connect(function()
+				self.connectionId = nil
+				self.syncTime = nil
+				self.Socket = nil
+			end)
+		end
+	
+		function SpotifyHandler:Start()
+			if not isfile('newvape/profiles/spotify.txt') then
+				notif('Spotify', 'Missing cookie! (dump sp_dc from the browser and write to profiles/spotify.txt)', 30, 'warning')
+				return
+			end
+	
+			self.Headers = {
+				Cookie = 'sp_dc='..readfile('newvape/profiles/spotify.txt')..';',
+				['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0'
+			}
+	
+			local data = isfile('newvape/profiles/spotifydata.txt') and httpService:JSONDecode(readfile('newvape/profiles/spotifydata.txt')) or {expireTime = 0}
+			if data.expireTime > os.time() then
+				self.Data = data
+			else
+				local success
+				success, data = pcall(function()
+					return self:Refresh()
+				end)
+	
+				if success then
+					writefile('newvape/profiles/spotifydata.txt', httpService:JSONEncode(data))
+					self.Data = data
+				else
+					notif('Spotify', data, 10, 'alert')
+					return
+				end
+			end
+	
+			if not self.clientToken then
+				local success, deviceToken = pcall(function()
+					return self:GetSession()
+				end)
+	
+				if success then
+					self.clientToken = deviceToken
+				else
+					notif('Spotify', deviceToken, 10, 'alert')
+					return
+				end
+			end
+	
+			self:RegisterSocket()
+			local pingCooldown = os.clock() + 30
+	
+			repeat
+				task.wait(1)
+	
+				if self.Socket then
+					if self.syncTime and (os.clock() - self.syncTime) > 10 then
+						pingCooldown = os.clock() + 30
+						self.Socket:Close()
+						self.Socket.OnClose:Wait()
+						self:RegisterSocket()
+					elseif pingCooldown < os.clock() then
+						self.Socket:Send('{"type":"ping"}')
+						self.syncTime = os.clock()
+						pingCooldown = os.clock() + 30
+					end
+	
+					if self.playPosition then
+						self.playPosition = math.clamp(self.playPosition + self.playRate, 0.01, self.playDuration)
+						duration.Text = (self.playPosition // 60)..':'..string.format('%02i', (self.playPosition // 1) % 60)
+						fill.Size = UDim2.fromScale(self.playPosition / self.playDuration, 1)
+					end
+				end
+			until false
+		end
+	end
+end)
+
+run(function()
+	local Tracers
+	local Targets
+	local Color
+	local Transparency
+	local StartPosition
+	local EndPosition
+	local Teammates
+	local DistanceColor
+	local Distance
+	local DistanceLimit
+	local Behind
+	local Reference = {}
+	
+	local function Added(ent)
+		if not Targets.Players.Enabled and ent.Player then return end
+		if not Targets.NPCs.Enabled and ent.NPC then return end
+		if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+		if vape.ThreadFix then
+			setthreadidentity(8)
+		end
+	
+		local EntityTracer = Drawing.new('Line')
+		EntityTracer.Thickness = 1
+		EntityTracer.Transparency = 1 - Transparency.Value
+		EntityTracer.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+		Reference[ent] = EntityTracer
+	end
+	
+	local function Removed(ent)
+		local v = Reference[ent]
+		if v then
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+			Reference[ent] = nil
+			pcall(function()
+				v.Visible = false
+				v:Remove()
+			end)
+		end
+	end
+	
+	local function ColorFunc(hue, sat, val)
+		if DistanceColor.Enabled then return end
+		local tracerColor = Color3.fromHSV(hue, sat, val)
+		for ent, EntityTracer in Reference do
+			EntityTracer.Color = entitylib.getEntityColor(ent) or tracerColor
+		end
+	end
+	
+	local function Loop()
+		local screenSize = vape.gui.AbsoluteSize
+		local startVector = StartPosition.Value == 'Mouse' and inputService:GetMouseLocation() or Vector2.new(screenSize.X / 2, (StartPosition.Value == 'Middle' and screenSize.Y / 2 or screenSize.Y))
+	
+		for ent, EntityTracer in Reference do
+			local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude
+			if Distance.Enabled and distance then
+				if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+					EntityTracer.Visible = false
+					continue
+				end
+			end
+	
+			local pos = ent[EndPosition.Value == 'Torso' and 'RootPart' or 'Head'].Position
+			local rootPos, rootVis = gameCamera:WorldToViewportPoint(pos)
+			if not rootVis and Behind.Enabled then
+				local tempPos = gameCamera.CFrame:PointToObjectSpace(pos)
+				tempPos = CFrame.Angles(0, 0, (math.atan2(tempPos.Y, tempPos.X) + math.pi)):VectorToWorldSpace((CFrame.Angles(0, math.rad(89.9), 0):VectorToWorldSpace(Vector3.new(0, 0, -1))))
+				rootPos = gameCamera:WorldToViewportPoint(gameCamera.CFrame:pointToWorldSpace(tempPos))
+				rootVis = true
+			end
+	
+			local endVector = Vector2.new(rootPos.X, rootPos.Y)
+			EntityTracer.Visible = rootVis
+			EntityTracer.From = startVector
+			EntityTracer.To = endVector
+			if DistanceColor.Enabled and distance then
+				EntityTracer.Color = Color3.fromHSV(math.min((distance / 128) / 2.8, 0.4), 0.89, 0.75)
+			end
+		end
+	end
+	
+	Tracers = vape.Categories.Render:CreateModule({
+		Name = 'Tracers',
+		Function = function(callback)
+			if callback then
+				Tracers:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
+				for _, v in entitylib.List do
+					if Reference[v] then
+						Removed(v)
+					end
+					Added(v)
+				end
+				Tracers:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+					if Reference[ent] then
+						Removed(ent)
+					end
+					Added(ent)
+				end))
+				Tracers:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+					ColorFunc(Color.Hue, Color.Sat, Color.Value)
+				end))
+				Tracers:Clean(runService.RenderStepped:Connect(Loop))
+			else
+				for i in Reference do
+					Removed(i)
+				end
+			end
+		end,
+		Tooltip = 'Renders tracers on players.'
+	})
+	Targets = Tracers:CreateTargets({
+		Players = true,
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	StartPosition = Tracers:CreateDropdown({
+		Name = 'Start Position',
+		List = {'Middle', 'Bottom', 'Mouse'},
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	EndPosition = Tracers:CreateDropdown({
+		Name = 'End Position',
+		List = {'Head', 'Torso'},
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	Color = Tracers:CreateColorSlider({
+		Name = 'Player Color',
+		Function = function(hue, sat, val)
+			if Tracers.Enabled then
+				ColorFunc(hue, sat, val)
+			end
+		end
+	})
+	Transparency = Tracers:CreateSlider({
+		Name = 'Transparency',
+		Min = 0,
+		Max = 1,
+		Function = function(val)
+			for _, tracer in Reference do
+				tracer.Transparency = 1 - val
+			end
+		end,
+		Decimal = 10
+	})
+	DistanceColor = Tracers:CreateToggle({
+		Name = 'Color by distance',
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	Distance = Tracers:CreateToggle({
+		Name = 'Distance Check',
+		Function = function(callback)
+			DistanceLimit.Object.Visible = callback
+		end
+	})
+	DistanceLimit = Tracers:CreateTwoSlider({
+		Name = 'Player Distance',
+		Min = 0,
+		Max = 256,
+		DefaultMin = 0,
+		DefaultMax = 64,
+		Darker = true,
+		Visible = false
+	})
+	Behind = Tracers:CreateToggle({
+		Name = 'Behind',
+		Default = true
+	})
+	Teammates = Tracers:CreateToggle({
+		Name = 'Priority Only',
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides teammates & non targetable entities'
+	})
+end)
+
+run(function()
 	local Waypoints
 	local FontOption
 	local List
@@ -5621,7 +6795,7 @@ run(function()
 	local Scale
 	local Background
 	WaypointFolder = Instance.new('Folder')
-	WaypointFolder.Parent = vape.gui
+	WaypointFolder.Parent = vape.holder
 	
 	Waypoints = vape.Categories.Render:CreateModule({
 		Name = 'Waypoints',
@@ -5845,10 +7019,10 @@ run(function()
 		Name = 'AutoRejoin',
 		Function = function(callback)
 			if callback then
-				local check
+				local rejoinCheck
 				AutoRejoin:Clean(guiService.ErrorMessageChanged:Connect(function(str)
-					if (not check or guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectLuaKick) and guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectConnectionLost and not str:lower():find('ban') then
-						check = true
+					if (not rejoinCheck or guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectLuaKick) and guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectConnectionLost and not str:lower():find('ban') then
+						rejoinCheck = true
 						serverHop(nil, Sort.Value)
 					end
 				end))
@@ -6027,6 +7201,47 @@ run(function()
 				ChatSpammer:Toggle()
 			end
 		end
+	})
+end)
+
+run(function()
+	local Disabler
+	
+	local function LocalAdded(char)
+		for _, prop in {'CFrame', 'Velocity'} do
+			for _, connection in getconnections(char.RootPart:GetPropertyChangedSignal(prop)) do
+				hookfunction(connection.Function, function() end)
+			end
+		end
+	end
+	
+	Disabler = vape.Categories.Utility:CreateModule({
+		Name = 'Disabler',
+		Function = function(callback)
+			if callback then
+				Disabler:Clean(entitylib.Events.LocalAdded:Connect(LocalAdded))
+				if entitylib.isAlive then
+					LocalAdded(entitylib.character)
+				end
+			end
+		end,
+		Tooltip = 'Disables GetPropertyChangedSignal detections for movement'
+	})
+end)
+
+run(function()
+	vape.Categories.Utility:CreateModule({
+		Name = 'Panic',
+		Function = function(callback)
+			if callback then
+				for _, module in vape.Modules do
+					if module.Enabled then
+						module:Toggle()
+					end
+				end
+			end
+		end,
+		Tooltip = 'Disables all currently enabled modules'
 	})
 end)
 
@@ -6271,6 +7486,28 @@ run(function()
 end)
 
 run(function()
+	local connections = {}
+	
+	vape.Categories.World:CreateModule({
+		Name = 'Anti-AFK',
+		Function = function(callback)
+			if callback then
+				for _, connection in getconnections(lplr.Idled) do
+					table.insert(connections, connection)
+					connection:Disable()
+				end
+			else
+				for _, connection in connections do
+					connection:Enable()
+				end
+				table.clear(connections)
+			end
+		end,
+		Tooltip = 'Lets you stay ingame without getting kicked'
+	})
+end)
+
+run(function()
 	local FastProxPrompt
 	local Mode
 	local Value
@@ -6423,6 +7660,757 @@ run(function()
 		Default = 50,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
+		end
+	})
+end)
+
+run(function()
+	local Gravity
+	local Mode
+	local Value
+	local changed, old = false
+	
+	Gravity = vape.Categories.World:CreateModule({
+		Name = 'Gravity',
+		Function = function(callback)
+			if callback then
+				if Mode.Value == 'Workspace' then
+					old = workspace.Gravity
+					workspace.Gravity = Value.Value
+	
+					Gravity:Clean(workspace:GetPropertyChangedSignal('Gravity'):Connect(function()
+						if changed then return end
+	
+						changed = true
+						old = workspace.Gravity
+						workspace.Gravity = Value.Value
+						changed = false
+					end))
+				else
+					Gravity:Clean(runService.PreSimulation:Connect(function(dt)
+						if entitylib.isAlive and entitylib.character.Humanoid.FloorMaterial == Enum.Material.Air then
+							local root = entitylib.character.RootPart
+	
+							if Mode.Value == 'Impulse' then
+								root:ApplyImpulse(Vector3.new(0, dt * (workspace.Gravity - Value.Value), 0) * root.AssemblyMass)
+							else
+								root.AssemblyLinearVelocity += Vector3.new(0, dt * (workspace.Gravity - Value.Value), 0)
+							end
+						end
+					end))
+				end
+			else
+				if old then
+					workspace.Gravity = old
+					old = nil
+				end
+			end
+		end,
+		Tooltip = 'Changes the rate you fall'
+	})
+	Mode = Gravity:CreateDropdown({
+		Name = 'Mode',
+		List = {'Workspace', 'Velocity', 'Impulse'},
+		Tooltip = 'Workspace - Adjusts the gravity for the entire game\nVelocity - Adjusts the local players gravity\nImpulse - Same as velocity while using forces instead'
+	})
+	Value = Gravity:CreateSlider({
+		Name = 'Gravity',
+		Min = 0,
+		Max = 192,
+		Function = function(val)
+			if Gravity.Enabled and Mode.Value == 'Workspace' then
+				changed = true
+				workspace.Gravity = val
+				changed = false
+			end
+		end,
+		Default = 192
+	})
+end)
+
+run(function()
+	local MurderMystery
+	local murderer, sheriff, oldtargetable, oldgetcolor
+	
+	local function itemAdded(tool, plr)
+		if tool:IsA('Tool') then
+			local check = tool:FindFirstChild('IsGun') and 'sheriff' or tool:FindFirstChild('KnifeServer') and 'murderer' or nil
+			check = check or tool.Name:lower():find('knife') and 'murderer' or tool.Name:lower():find('gun') and 'sheriff' or nil
+	
+			if check == 'murderer' and plr ~= murderer then
+				murderer = plr
+	
+				if plr.Character then
+					entitylib.refresh()
+				end
+			elseif check == 'sheriff' and plr ~= sheriff then
+				sheriff = plr
+	
+				if plr.Character then
+					entitylib.refresh()
+				end
+			end
+		end
+	end
+	
+	local function playerAdded(plr)
+		MurderMystery:Clean(plr.DescendantAdded:Connect(function(v)
+			itemAdded(v, plr)
+		end))
+	
+		local pack = plr:FindFirstChildWhichIsA('Backpack')
+		if pack then
+			for _, v in pack:GetChildren() do
+				itemAdded(v, plr)
+			end
+		end
+	
+		if plr.Character then
+			for _, v in plr.Character:GetChildren() do
+				itemAdded(v, plr)
+			end
+		end
+	end
+	
+	MurderMystery = vape.Categories.World:CreateModule({
+		Name = 'MurderMystery',
+		Function = function(callback)
+			if callback then
+				oldtargetable, oldgetcolor = entitylib.targetCheck, entitylib.getEntityColor
+	
+				entitylib.getEntityColor = function(ent)
+					ent = ent.Player
+					if not (ent and vape.Settings.Modules.Options['Use team color'].Enabled) then return end
+					if isFriend(ent, true) then
+						return Color3.fromHSV(vape.Categories.Friends.Options['Friends color'].Hue, vape.Categories.Friends.Options['Friends color'].Sat, vape.Categories.Friends.Options['Friends color'].Value)
+					end
+					return murderer == ent and Color3.new(1, 0.3, 0.3) or sheriff == ent and Color3.new(0, 0.5, 1) or nil
+				end
+	
+				entitylib.targetCheck = function(entity)
+					if entity.Player and isFriend(entity.Player) then
+						return false
+					end
+	
+					if murderer == lplr then
+						return true
+					end
+	
+					return murderer == entity.Player or sheriff == entity.Player
+				end
+	
+				for _, plr in playersService:GetPlayers() do
+					playerAdded(plr)
+				end
+	
+				MurderMystery:Clean(playersService.PlayerAdded:Connect(playerAdded))
+				entitylib.refresh()
+			else
+				entitylib.getEntityColor = oldgetcolor
+				entitylib.targetCheck = oldtargetable
+				entitylib.refresh()
+			end
+		end,
+		Tooltip = 'Automatic murder mystery teaming based on equipped roblox tools.'
+	})
+end)
+
+run(function()
+	local Parkour
+	
+	Parkour = vape.Categories.World:CreateModule({
+		Name = 'Parkour',
+		Function = function(callback)
+			if callback then
+				local oldfloor
+				Parkour:Clean(runService.RenderStepped:Connect(function()
+					if entitylib.isAlive then
+						local material = entitylib.character.Humanoid.FloorMaterial
+						if material == Enum.Material.Air and oldfloor ~= Enum.Material.Air then
+							entitylib.character.Humanoid.Jump = true
+						end
+	
+						oldfloor = material
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Automatically jumps after reaching the edge'
+	})
+end)
+
+run(function()
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	local module, old
+	
+	vape.Categories.World:CreateModule({
+		Name = 'SafeWalk',
+		Function = function(callback)
+			if callback then
+				if not module then
+					local success = pcall(function()
+						module = require(lplr.PlayerScripts.PlayerModule).controls
+					end)
+	
+					if not success then
+						module = {}
+					end
+				end
+	
+				old = module.moveFunction
+				module.moveFunction = function(self, vec, face)
+					if entitylib.isAlive then
+						rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+						local root = entitylib.character.RootPart
+						local movedir = root.Position + vec
+						local ray = workspace:Raycast(movedir, Vector3.new(0, -15, 0), rayCheck)
+	
+						if not ray then
+							local check = workspace:Blockcast(root.CFrame, Vector3.new(3, 1, 3), Vector3.new(0, -(entitylib.character.HipHeight + 1), 0), rayCheck)
+							if check then
+								vec = (check.Instance:GetClosestPointOnSurface(movedir) - root.Position) * Vector3.new(1, 0, 1)
+							end
+						end
+					end
+	
+					return old(self, vec, face)
+				end
+			else
+				if module and old then
+					module.moveFunction = old
+				end
+			end
+		end,
+		Tooltip = 'Prevents you from walking off the edge of parts'
+	})
+end)
+
+run(function()
+	local Wallhop
+	local Offset
+	local params = OverlapParams.new()
+	params.RespectCanCollide = true
+	local oldvec
+	local timeout = os.clock()
+	local set
+	
+	local function doCheck()
+		if set then
+			gameCamera.CFrame = CFrame.new(gameCamera.CFrame.Position.X, gameCamera.CFrame.Position.Y, gameCamera.CFrame.Position.Z, unpack(set, 4, set.n))
+			set = nil
+		end
+	
+		local hum = entitylib.isAlive and entitylib.character.Humanoid
+		if hum and hum.Jump and hum.MoveDirection.Magnitude > 0 then
+			local root = entitylib.character.RootPart
+			params.CollisionGroup = root.CollisionGroup
+			params.FilterDescendantsInstances = {lplr.Character}
+	
+			if root.AssemblyLinearVelocity.Y < 0 and hum.FloorMaterial == Enum.Material.Air then
+				local feet = root.Position
+				local parts = workspace:GetPartBoundsInBox(CFrame.new(root.Position - Vector3.new(0, entitylib.character.HipHeight / 2, 0)), Vector3.new(3, entitylib.character.HipHeight, 3), params)
+				local doHop = false
+	
+				for _, part in parts do
+					local pos = part:GetClosestPointOnSurface(root.Position)
+					local diff = (root.Position.Y - pos.Y)
+	
+					if diff > root.Size.Y / 2 then
+						doHop = true
+						break
+					end
+				end
+	
+				if doHop and (os.clock() - timeout) > 0.2 then
+					set = table.pack(gameCamera.CFrame:GetComponents())
+					gameCamera.CFrame *= CFrame.Angles(0, math.rad(Offset.Value), 0)
+					timeout = os.clock()
+				end
+			end
+		end
+	end
+	
+	Wallhop = vape.Categories.World:CreateModule({
+		Name = 'Wallhop',
+		Function = function(callback)
+			if callback then
+				if workspace.AuthorityMode == Enum.AuthorityMode.Server then
+					Wallhop:Clean(runService:BindToSimulation(doCheck))
+				else
+					Wallhop:Clean(runService.RenderStepped:Connect(doCheck))
+				end
+			else
+				set = nil
+			end
+		end,
+		Tooltip = 'Automatically rotates camera for wallhopping.'
+	})
+	Offset = Wallhop:CreateSlider({
+		Name = 'Offset',
+		Min = -45,
+		Max = 45,
+		Default = 45,
+		Suffix = 'degrees'
+	})
+end)
+
+run(function()
+	local Xray
+	local List
+	local modified = {}
+	
+	local function modifyPart(part)
+		if part:IsA('BasePart') and not table.find(List.ListEnabled, part.Name) then
+			modified[part] = true
+			part.LocalTransparencyModifier = 0.5
+		end
+	end
+	
+	Xray = vape.Categories.World:CreateModule({
+		Name = 'Xray',
+		Function = function(callback)
+			if callback then
+				Xray:Clean(workspace.DescendantAdded:Connect(modifyPart))
+				for _, part in workspace:QueryDescendants('BasePart') do
+					modifyPart(part)
+				end
+			else
+				for part in modified do
+					part.LocalTransparencyModifier = 0
+				end
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Renders whitelisted parts through walls.'
+	})
+	List = Xray:CreateTextList({
+		Name = 'Part',
+		Function = function()
+			if Xray.Enabled then
+				Xray:Toggle()
+				Xray:Toggle()
+			end
+		end
+	})
+end)
+
+run(function()
+	local Atmosphere
+	local Toggles = {}
+	local newobjects, oldobjects = {}, {}
+	local apidump = {
+		Sky = {
+			SkyboxUp = 'Text',
+			SkyboxDn = 'Text',
+			SkyboxLf = 'Text',
+			SkyboxRt = 'Text',
+			SkyboxFt = 'Text',
+			SkyboxBk = 'Text',
+			SunTextureId = 'Text',
+			SunAngularSize = 'Number',
+			MoonTextureId = 'Text',
+			MoonAngularSize = 'Number',
+			StarCount = 'Number'
+		},
+		Atmosphere = {
+			Color = 'Color',
+			Decay = 'Color',
+			Density = 'Number',
+			Offset = 'Number',
+			Glare = 'Number',
+			Haze = 'Number'
+		},
+		BloomEffect = {
+			Intensity = 'Number',
+			Size = 'Number',
+			Threshold = 'Number'
+		},
+		DepthOfFieldEffect = {
+			FarIntensity = 'Number',
+			FocusDistance = 'Number',
+			InFocusRadius = 'Number',
+			NearIntensity = 'Number'
+		},
+		SunRaysEffect = {
+			Intensity = 'Number',
+			Spread = 'Number'
+		},
+		ColorCorrectionEffect = {
+			TintColor = 'Color',
+			Saturation = 'Number',
+			Contrast = 'Number',
+			Brightness = 'Number'
+		}
+	}
+	
+	local function removeObject(v)
+		if not table.find(newobjects, v) then
+			local toggle = Toggles[v.ClassName]
+			if toggle and toggle.Toggle.Enabled then
+				if v.Parent then
+					table.insert(oldobjects, v)
+					v.Parent = game
+				end
+			end
+		end
+	end
+	
+	Atmosphere = vape.Legit:CreateModule({
+		Name = 'Atmosphere',
+		Function = function(callback)
+			if callback then
+				for _, v in lightingService:GetChildren() do
+					removeObject(v)
+				end
+	
+				Atmosphere:Clean(lightingService.ChildAdded:Connect(function(v)
+					task.defer(removeObject, v)
+				end))
+	
+				for i, v in Toggles do
+					if v.Toggle.Enabled then
+						local obj = Instance.new(i)
+						for i2, v2 in v.Objects do
+							if v2.Type == 'ColorSlider' then
+								obj[i2] = Color3.fromHSV(v2.Hue, v2.Sat, v2.Value)
+							else
+								obj[i2] = apidump[i][i2] ~= 'Number' and v2.Value or tonumber(v2.Value) or 0
+							end
+						end
+						obj.Parent = lightingService
+						table.insert(newobjects, obj)
+					end
+				end
+			else
+				for _, v in newobjects do
+					v:Destroy()
+				end
+	
+				for _, v in oldobjects do
+					v.Parent = lightingService
+				end
+	
+				table.clear(newobjects)
+				table.clear(oldobjects)
+			end
+		end,
+		Tooltip = 'Custom lighting objects'
+	})
+	for i, v in apidump do
+		Toggles[i] = {Objects = {}}
+		Toggles[i].Toggle = Atmosphere:CreateToggle({
+			Name = i,
+			Function = function(callback)
+				if Atmosphere.Enabled then
+					Atmosphere:Toggle()
+					Atmosphere:Toggle()
+				end
+	
+				for _, toggle in Toggles[i].Objects do
+					toggle.Object.Visible = callback
+				end
+			end
+		})
+	
+		for i2, v2 in v do
+			if v2 == 'Text' or v2 == 'Number' then
+				Toggles[i].Objects[i2] = Atmosphere:CreateTextBox({
+					Name = i2,
+					Function = function(enter)
+						if Atmosphere.Enabled and enter then
+							Atmosphere:Toggle()
+							Atmosphere:Toggle()
+						end
+					end,
+					Darker = true,
+					Default = v2 == 'Number' and '0' or nil,
+					Visible = false
+				})
+			elseif v2 == 'Color' then
+				Toggles[i].Objects[i2] = Atmosphere:CreateColorSlider({
+					Name = i2,
+					Function = function()
+						if Atmosphere.Enabled then
+							Atmosphere:Toggle()
+							Atmosphere:Toggle()
+						end
+					end,
+					Darker = true,
+					Visible = false
+				})
+			end
+		end
+	end
+end)
+
+run(function()
+	local Breadcrumbs
+	local Texture
+	local Lifetime
+	local Thickness
+	local FadeIn
+	local FadeOut
+	local trail, point, point2
+	
+	Breadcrumbs = vape.Legit:CreateModule({
+		Name = 'Breadcrumbs',
+		Function = function(callback)
+			if callback then
+				point = Instance.new('Attachment')
+				point.Position = Vector3.new(0, Thickness.Value - 2.7, 0)
+				point2 = Instance.new('Attachment')
+				point2.Position = Vector3.new(0, -Thickness.Value - 2.7, 0)
+				trail = Instance.new('Trail')
+				trail.Texture = Texture.Value == '' and 'http://www.roblox.com/asset/?id=14166981368' or Texture.Value
+				trail.TextureMode = Enum.TextureMode.Static
+				trail.Color = ColorSequence.new(Color3.fromHSV(FadeIn.Hue, FadeIn.Sat, FadeIn.Value), Color3.fromHSV(FadeOut.Hue, FadeOut.Sat, FadeOut.Value))
+				trail.Lifetime = Lifetime.Value
+				trail.Attachment0 = point
+				trail.Attachment1 = point2
+				trail.FaceCamera = true
+	
+				Breadcrumbs:Clean(trail)
+				Breadcrumbs:Clean(point)
+				Breadcrumbs:Clean(point2)
+				Breadcrumbs:Clean(entitylib.Events.LocalAdded:Connect(function(ent)
+					point.Parent = ent.HumanoidRootPart
+					point2.Parent = ent.HumanoidRootPart
+					trail.Parent = gameCamera
+				end))
+	
+				if entitylib.isAlive then
+					point.Parent = entitylib.character.RootPart
+					point2.Parent = entitylib.character.RootPart
+					trail.Parent = gameCamera
+				end
+			else
+				trail = nil
+				point = nil
+				point2 = nil
+			end
+		end,
+		Tooltip = 'Shows a trail behind your character'
+	})
+	Texture = Breadcrumbs:CreateTextBox({
+		Name = 'Texture',
+		Placeholder = 'Texture Id',
+		Function = function(enter)
+			if enter and trail then
+				trail.Texture = Texture.Value == '' and 'http://www.roblox.com/asset/?id=14166981368' or Texture.Value
+			end
+		end
+	})
+	FadeIn = Breadcrumbs:CreateColorSlider({
+		Name = 'Fade In',
+		Function = function(hue, sat, val)
+			if trail then
+				trail.Color = ColorSequence.new(Color3.fromHSV(hue, sat, val), Color3.fromHSV(FadeOut.Hue, FadeOut.Sat, FadeOut.Value))
+			end
+		end
+	})
+	FadeOut = Breadcrumbs:CreateColorSlider({
+		Name = 'Fade Out',
+		Function = function(hue, sat, val)
+			if trail then
+				trail.Color = ColorSequence.new(Color3.fromHSV(FadeIn.Hue, FadeIn.Sat, FadeIn.Value), Color3.fromHSV(hue, sat, val))
+			end
+		end
+	})
+	Lifetime = Breadcrumbs:CreateSlider({
+		Name = 'Lifetime',
+		Min = 1,
+		Max = 5,
+		Default = 3,
+		Decimal = 10,
+		Function = function(val)
+			if trail then
+				trail.Lifetime = val
+			end
+		end,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	Thickness = Breadcrumbs:CreateSlider({
+		Name = 'Thickness',
+		Min = 0,
+		Max = 2,
+		Default = 0.1,
+		Decimal = 100,
+		Function = function(val)
+			if point then
+				point.Position = Vector3.new(0, val - 2.7, 0)
+			end
+			if point2 then
+				point2.Position = Vector3.new(0, -val - 2.7, 0)
+			end
+		end,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+end)
+
+run(function()
+	local Cape
+	local Texture
+	local part, motor
+	
+	local function createMotor(char)
+		if motor then
+			motor:Destroy()
+		end
+	
+		part.Parent = gameCamera
+		motor = Instance.new('Motor6D')
+		motor.MaxVelocity = 0.08
+		motor.Part0 = part
+		motor.Part1 = char.Character:FindFirstChild('UpperTorso') or char.RootPart
+		motor.C0 = CFrame.new(0, 2, 0) * CFrame.Angles(0, math.rad(-90), 0)
+		motor.C1 = CFrame.new(0, motor.Part1.Size.Y / 2, 0.45) * CFrame.Angles(0, math.rad(90), 0)
+		motor.Parent = part
+	end
+	
+	Cape = vape.Legit:CreateModule({
+		Name = 'Cape',
+		Function = function(callback)
+			if callback then
+				part = Instance.new('Part')
+				part.Size = Vector3.new(2, 4, 0.1)
+				part.CanCollide = false
+				part.CanQuery = false
+				part.Massless = true
+				part.Transparency = 0
+				part.Material = Enum.Material.SmoothPlastic
+				part.Color = Color3.new()
+				part.CastShadow = false
+				part.Parent = gameCamera
+				local capesurface = Instance.new('SurfaceGui')
+				capesurface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+				capesurface.Adornee = part
+				capesurface.Parent = part
+	
+				if Texture.Value:find('.webm') then
+					local decal = Instance.new('VideoFrame')
+					decal.Video = getcustomasset(Texture.Value)
+					decal.Size = UDim2.fromScale(1, 1)
+					decal.BackgroundTransparency = 1
+					decal.Looped = true
+					decal.Parent = capesurface
+					decal:Play()
+				else
+					local decal = Instance.new('ImageLabel')
+					decal.Image = Texture.Value ~= '' and (Texture.Value:find('rbxasset') and Texture.Value or getcustomasset(Texture.Value)) or 'rbxassetid://14637958134'
+					decal.Size = UDim2.fromScale(1, 1)
+					decal.BackgroundTransparency = 1
+					decal.Parent = capesurface
+				end
+	
+				Cape:Clean(part)
+				Cape:Clean(entitylib.Events.LocalAdded:Connect(createMotor))
+				if entitylib.isAlive then
+					createMotor(entitylib.character)
+				end
+	
+				Cape:Clean(runService.RenderStepped:Connect(function()
+					if motor and entitylib.isAlive then
+						local velo = math.min(entitylib.character.RootPart.Velocity.Magnitude, 90)
+						motor.DesiredAngle = math.rad(6) + math.rad(velo) + (velo > 1 and math.abs(math.cos(tick() * 5)) / 3 or 0)
+					end
+	
+					capesurface.Enabled = (gameCamera.CFrame.Position - gameCamera.Focus.Position).Magnitude > 0.6
+					part.Transparency = (gameCamera.CFrame.Position - gameCamera.Focus.Position).Magnitude > 0.6 and 0 or 1
+				end))
+			else
+				part = nil
+				motor = nil
+			end
+		end,
+		Tooltip = 'Add\'s a cape to your character'
+	})
+	Texture = Cape:CreateTextBox({
+		Name = 'Texture'
+	})
+end)
+
+run(function()
+	local ChinaHat
+	local Material
+	local Color
+	local hat
+	
+	ChinaHat = vape.Legit:CreateModule({
+		Name = 'China Hat',
+		Function = function(callback)
+			if callback then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+	
+				hat = assetService:CreateMeshPartAsync('http://www.roblox.com/asset/?id=1778999')
+				hat.Size = Vector3.new(3, 0.7, 3)
+				hat.Name = 'ChinaHat'
+				hat.Material = Enum.Material[Material.Value]
+				hat.Color = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+				hat.CanCollide = false
+				hat.CanQuery = false
+				hat.Massless = true
+				hat.Transparency = 1 - Color.Opacity
+				hat.Parent = gameCamera
+				hat.CFrame = entitylib.isAlive and entitylib.character.Head.CFrame + Vector3.new(0, 1, 0) or CFrame.identity
+				local weld = Instance.new('WeldConstraint')
+				weld.Part0 = hat
+				weld.Part1 = entitylib.isAlive and entitylib.character.Head or nil
+				weld.Parent = hat
+	
+				ChinaHat:Clean(hat)
+				ChinaHat:Clean(entitylib.Events.LocalAdded:Connect(function(char)
+					if weld then
+						weld:Destroy()
+					end
+	
+					hat.Parent = gameCamera
+					hat.CFrame = char.Head.CFrame + Vector3.new(0, 1, 0)
+					hat.Velocity = Vector3.zero
+					weld = Instance.new('WeldConstraint')
+					weld.Part0 = hat
+					weld.Part1 = char.Head
+					weld.Parent = hat
+				end))
+	
+				ChinaHat:Clean(runService.RenderStepped:Connect(function()
+					hat.LocalTransparencyModifier = ((gameCamera.CFrame.Position - gameCamera.Focus.Position).Magnitude <= 0.6 and 1 or 0)
+				end))
+			else
+				hat = nil
+			end
+		end,
+		Tooltip = 'Puts a china hat on your character (ty mastadawn)'
+	})
+	local materials = {'ForceField'}
+	for _, v in Enum.Material:GetEnumItems() do
+		if v.Name ~= 'ForceField' then
+			table.insert(materials, v.Name)
+		end
+	end
+	Material = ChinaHat:CreateDropdown({
+		Name = 'Material',
+		List = materials,
+		Function = function(val)
+			if hat then
+				hat.Material = Enum.Material[val]
+			end
+		end
+	})
+	Color = ChinaHat:CreateColorSlider({
+		Name = 'Hat Color',
+		DefaultOpacity = 0.7,
+		Function = function(hue, sat, val, opacity)
+			if hat then
+				hat.Color = Color3.fromHSV(hue, sat, val)
+				hat.Transparency = 1 - opacity
+			end
 		end
 	})
 end)
@@ -6711,6 +8699,127 @@ run(function()
 	local corner = Instance.new('UICorner')
 	corner.CornerRadius = UDim.new(0, 4)
 	corner.Parent = label
+end)
+
+run(function()
+	local Keystrokes
+	local Style
+	local Color
+	local keys, holder = {}
+	
+	local function createKeystroke(keybutton, pos, pos2, text)
+		if keys[keybutton] then
+			keys[keybutton].Key:Destroy()
+			keys[keybutton] = nil
+		end
+	
+		local key = Instance.new('Frame')
+		key.BackgroundColor3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+		key.BackgroundTransparency = 1 - Color.Opacity
+		key.Position = pos
+		key.Size = keybutton == Enum.KeyCode.Space and UDim2.new(0, 110, 0, 24) or UDim2.new(0, 34, 0, 36)
+		key.Name = keybutton.Name
+		key.Parent = holder
+		local label = Instance.new('TextLabel')
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.Gotham
+		label.Position = pos2
+		label.Size = UDim2.fromScale(1, 1)
+		label.Text = text or keybutton.Name
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.TextSize = keybutton == Enum.KeyCode.Space and 18 or 15
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextYAlignment = Enum.TextYAlignment.Top
+		label.Parent = key
+		local corner = Instance.new('UICorner')
+		corner.CornerRadius = UDim.new(0, 4)
+		corner.Parent = key
+	
+		keys[keybutton] = {Key = key}
+	end
+	
+	local function updateKey(inputType)
+		local key = keys[inputType.KeyCode]
+		if key then
+			if key.Tween then
+				key.Tween:Cancel()
+			end
+	
+			if key.Tween2 then
+				key.Tween2:Cancel()
+			end
+	
+			local pressed = inputType.UserInputState == Enum.UserInputState.Begin
+			key.Pressed = pressed
+			key.Tween = tweenService:Create(key.Key, TweenInfo.new(0.1), {
+				BackgroundColor3 = pressed and Color3.new(1, 1, 1) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value),
+				BackgroundTransparency = pressed and 0 or 1 - Color.Opacity
+			})
+			key.Tween2 = tweenService:Create(key.Key.TextLabel, TweenInfo.new(0.1), {
+				TextColor3 = pressed and Color3.new() or Color3.new(1, 1, 1)
+			})
+			key.Tween:Play()
+			key.Tween2:Play()
+		end
+	end
+	
+	Keystrokes = vape.Legit:CreateModule({
+		Name = 'Keystrokes',
+		Function = function(callback)
+			if callback then
+				createKeystroke(Enum.KeyCode.W, UDim2.new(0, 38, 0, 0), UDim2.new(0, 6, 0, 5), Style.Value == 'Arrow' and '↑' or nil)
+				createKeystroke(Enum.KeyCode.S, UDim2.new(0, 38, 0, 42), UDim2.new(0, 8, 0, 5), Style.Value == 'Arrow' and '↓' or nil)
+				createKeystroke(Enum.KeyCode.A, UDim2.new(0, 0, 0, 42), UDim2.new(0, 7, 0, 5), Style.Value == 'Arrow' and '←' or nil)
+				createKeystroke(Enum.KeyCode.D, UDim2.new(0, 76, 0, 42), UDim2.new(0, 8, 0, 5), Style.Value == 'Arrow' and '→' or nil)
+	
+				Keystrokes:Clean(inputService.InputBegan:Connect(updateKey))
+				Keystrokes:Clean(inputService.InputEnded:Connect(updateKey))
+			end
+		end,
+		Size = UDim2.fromOffset(110, 176),
+		Tooltip = 'Shows movement keys onscreen'
+	})
+	holder = Instance.new('Frame')
+	holder.Size = UDim2.fromScale(1, 1)
+	holder.BackgroundTransparency = 1
+	holder.Parent = Keystrokes.Children
+	Style = Keystrokes:CreateDropdown({
+		Name = 'Key Style',
+		List = {'Keyboard', 'Arrow'},
+		Function = function()
+			if Keystrokes.Enabled then
+				Keystrokes:Toggle()
+				Keystrokes:Toggle()
+			end
+		end
+	})
+	Color = Keystrokes:CreateColorSlider({
+		Name = 'Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			for _, v in keys do
+				if not v.Pressed then
+					v.Key.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+					v.Key.BackgroundTransparency = 1 - opacity
+				end
+			end
+		end
+	})
+	Keystrokes:CreateToggle({
+		Name = 'Show Spacebar',
+		Function = function(callback)
+			Keystrokes.Children.Size = UDim2.fromOffset(110, callback and 107 or 78)
+	
+			if callback then
+				createKeystroke(Enum.KeyCode.Space, UDim2.new(0, 0, 0, 83), UDim2.new(0, 25, 0, -10), '______')
+			else
+				keys[Enum.KeyCode.Space].Key:Destroy()
+				keys[Enum.KeyCode.Space] = nil
+			end
+		end,
+		Default = true
+	})
 end)
 
 run(function()
