@@ -2170,28 +2170,6 @@ run(function()
 end)
 
 run(function()
-	local CameraPhase
-	local old
-	
-	CameraPhase = vape.Categories.Render:CreateModule({
-		Name = 'CameraPhase',
-		Function = function(callback)
-			if callback then
-				local popper = require(lplr.PlayerScripts.PlayerModule.CameraModule.ZoomController.Popper)
-				old = debug.getupvalue(debug.getupvalue(popper, 3), 7)
-				debug.setconstant(old, 16, 0)
-			else
-				if old then
-					debug.setconstant(old, 16, 0.25)
-					old = nil
-				end
-			end
-		end,
-		Tooltip = 'Allow the camera to phase through walls.'
-	})
-end)
-
-run(function()
 	local KillNotifications
 	
 	KillNotifications = vape.Categories.Render:CreateModule({
@@ -2606,41 +2584,6 @@ run(function()
 			end
 		end,
 		Tooltip = 'Detects people with history of cheating',
-	})
-end)
-
-run(function()
-	local Disabler
-	local old
-	
-	local function EntityAdded(entity)
-		task.defer(function()
-			old = getconnections(entity.Head:GetPropertyChangedSignal('CanCollide'))[1]
-			if old then
-				old:Disable()
-			end
-		end)
-	end
-	
-	Disabler = vape.Categories.Utility:CreateModule({
-		Name = 'Disabler',
-		Function = function(callback)
-			if callback then
-				Disabler:Clean(entitylib.Events.LocalAdded:Connect(EntityAdded))
-				if entitylib.isAlive then
-					task.spawn(EntityAdded, entitylib.character)
-				end
-			else
-				if old then
-					old:Enable()
-					old = nil
-				end
-			end
-		end,
-		Tooltip = 'Fixes phase with Character mode.',
-		ExtraText = function()
-			return 'Phase'
-		end
 	})
 end)
 
