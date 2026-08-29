@@ -1896,6 +1896,11 @@ run(function()
 		Name = 'Desync',
 		Function = function(callback)
 			if callback then
+				if not rakNetCheck('Desync') then
+					Desync:Toggle()
+					return
+				end
+	
 				raknet.desync(true)
 			else
 				raknet.desync(false)
