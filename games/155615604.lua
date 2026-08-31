@@ -2363,8 +2363,9 @@ run(function()
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 			if textChatService:CanUserChatAsync(lplr.UserId) then
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets['So close'])
 			else
-				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets[message] or Presets['So close'])
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets['So close'])
 			end
 		else
 			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, 'All')
@@ -2376,7 +2377,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					sendMessage('Kicked', plr, 'skill issue cheat | <obj>')
+					sendMessage('Kicked', plr, 'Kicked <obj>|Skill issue')
 				end))
 			end
 		end,
@@ -2411,6 +2412,7 @@ run(function()
 			end
 		end
 	end)
+	
 end)
 
 run(function()
