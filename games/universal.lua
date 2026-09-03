@@ -1157,6 +1157,96 @@ run(function()
 	})
 end)
 
+run(function()
+	local Reach
+	local Targets
+	local Mode
+	local Value
+	local Chance
+	local Overlay = OverlapParams.new()
+	Overlay.FilterType = Enum.RaycastFilterType.Include
+	local modified = {}
+	
+	Reach = vape.Categories.Combat:CreateModule({
+		Name = 'Reach',
+		Function = function(callback)
+			if callback then
+				repeat
+					local tool = getTool()
+					tool = tool and tool:FindFirstChildWhichIsA('TouchTransmitter', true)
+	
+					if tool then
+						if Mode.Value == 'TouchInterest' then
+							local entities = {}
+							for _, entity in entitylib.List do
+								if entity.Targetable then
+									if not Targets.Players.Enabled and entity.Player then continue end
+									if not Targets.NPCs.Enabled and entity.NPC then continue end
+									table.insert(entities, entity.Character)
+								end
+							end
+	
+							Overlay.FilterDescendantsInstances = entities
+							local parts = workspace:GetPartBoundsInBox(tool.Parent.CFrame * CFrame.new(0, 0, Value.Value / 2), tool.Parent.Size + Vector3.new(0, 0, Value.Value), Overlay)
+	
+							for _, part in parts do
+								if Random.new().NextNumber(Random.new(), 0, 100) > Chance.Value then
+									task.wait(0.2)
+									break
+								end
+	
+								firetouchinterest(tool.Parent, part, 1)
+								firetouchinterest(tool.Parent, part, 0)
+							end
+						else
+							if not modified[tool.Parent] then
+								modified[tool.Parent] = tool.Parent.Size
+							end
+	
+							tool.Parent.Size = modified[tool.Parent] + Vector3.new(0, 0, Value.Value)
+							tool.Parent.Massless = true
+						end
+					end
+	
+					task.wait()
+				until not Reach.Enabled
+			else
+				for part, oldSize in modified do
+					part.Size = oldSize
+					part.Massless = false
+				end
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Extends tool attack reach'
+	})
+	Targets = Reach:CreateTargets({Players = true})
+	Mode = Reach:CreateDropdown({
+		Name = 'Mode',
+		List = {'TouchInterest', 'Resize'},
+		Function = function(val)
+			Chance.Object.Visible = val == 'TouchInterest'
+		end,
+		Tooltip = 'TouchInterest - Reports fake collision events to the server\nResize - Physically modifies the tools size'
+	})
+	Value = Reach:CreateSlider({
+		Name = 'Range',
+		Min = 0,
+		Max = 2,
+		Decimal = 10,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	Chance = Reach:CreateSlider({
+		Name = 'Chance',
+		Min = 0,
+		Max = 100,
+		Default = 100,
+		Suffix = '%'
+	})
+end)
+
 local mouseClicked
 run(function()
 	local SilentAim
@@ -2518,6 +2608,308 @@ run(function()
 			end
 		end,
 		Tooltip = 'Allow you to stand on terrain water'
+	})
+end)
+
+run(function()
+	local Killaura
+	local Targets
+	local CPS
+	local SwingRange
+	local AttackRange
+	local AngleSlider
+	local Max
+	local Mouse
+	local Lunge
+	local BoxSwingColor
+	local BoxAttackColor
+	local ParticleTexture
+	local ParticleColor1
+	local ParticleColor2
+	local ParticleSize
+	local Face
+	local Overlay = OverlapParams.new()
+	Overlay.FilterType = Enum.RaycastFilterType.Include
+	local Particles, Boxes, AttackDelay = {}, {}, os.clock()
+	
+	local function getAttackData()
+		if Mouse.Enabled then
+			if not inputService:IsMouseButtonPressed(0) then return false end
+		end
+	
+		local tool = getTool()
+		return tool and tool:FindFirstChildWhichIsA('TouchTransmitter', true) or nil, tool
+	end
+	
+	Killaura = vape.Categories.Blatant:CreateModule({
+		Name = 'Killaura',
+		Function = function(callback)
+			if callback then
+				repeat
+					local interest, tool = getAttackData()
+					local attacked = {}
+	
+					if interest then
+						local entities = entitylib.AllPosition({
+							Range = SwingRange.Value,
+							Wallcheck = Targets.Walls.Enabled or nil,
+							Part = 'RootPart',
+							Players = Targets.Players.Enabled,
+							NPCs = Targets.NPCs.Enabled,
+							Limit = Max.Value
+						})
+	
+						if #entities > 0 then
+							local localPos = entitylib.character.RootPart.Position
+							local localFacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+	
+							for _, entity in entities do
+								local delta = (entity.RootPart.Position - localPos)
+								local angle = math.abs(localFacing:Angle(delta * Vector3.new(1, 0, 1)))
+								if angle > (math.rad(AngleSlider.Value) / 2) then
+									continue
+								end
+	
+								targetinfo.Targets[entity] = os.clock() + 1
+								table.insert(attacked, {
+									Entity = entity,
+									Check = delta.Magnitude > AttackRange.Value and BoxSwingColor or BoxAttackColor
+								})
+	
+								if AttackDelay < os.clock() then
+									AttackDelay = os.clock() + (1 / CPS.GetRandomValue())
+									tool:Activate()
+								end
+	
+								if Lunge.Enabled and tool.GripUp.X == 0 then
+									break
+								end
+	
+								if delta.Magnitude > AttackRange.Value then
+									continue
+								end
+	
+								Overlay.FilterDescendantsInstances = {entity.Character}
+								for _, part in workspace:GetPartBoundsInBox(entity.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
+									firetouchinterest(interest.Parent, part, 1)
+									firetouchinterest(interest.Parent, part, 0)
+								end
+							end
+						end
+					end
+	
+					for index, box in Boxes do
+						box.Adornee = attacked[index] and attacked[index].Entity.RootPart or nil
+						if box.Adornee then
+							box.Color3 = Color3.fromHSV(attacked[index].Check.Hue, attacked[index].Check.Sat, attacked[index].Check.Value)
+							box.Transparency = 1 - attacked[index].Check.Opacity
+						end
+					end
+	
+					for index, particle in Particles do
+						particle.Position = attacked[index] and attacked[index].Entity.RootPart.Position or Vector3.new(math.huge, math.huge, math.huge)
+						particle.Parent = attacked[index] and gameCamera or nil
+					end
+	
+					if Face.Enabled and attacked[1] then
+						local vec = attacked[1].Entity.RootPart.Position * Vector3.new(1, 0, 1)
+						entitylib.character.RootPart.CFrame = CFrame.lookAt(entitylib.character.RootPart.Position, Vector3.new(vec.X, entitylib.character.RootPart.Position.Y + 0.01, vec.Z))
+					end
+	
+					task.wait()
+				until not Killaura.Enabled
+			else
+				for _, box in Boxes do
+					box.Adornee = nil
+				end
+	
+				for _, particle in Particles do
+					particle.Parent = nil
+				end
+			end
+		end,
+		Tooltip = 'Attack players around you\nwithout aiming at them.'
+	})
+	Targets = Killaura:CreateTargets({
+		Players = true
+	})
+	CPS = Killaura:CreateTwoSlider({
+		Name = 'Attacks per Second',
+		Min = 1,
+		Max = 20,
+		DefaultMin = 12,
+		DefaultMax = 12
+	})
+	SwingRange = Killaura:CreateSlider({
+		Name = 'Swing range',
+		Min = 1,
+		Max = 30,
+		Default = 13,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	AttackRange = Killaura:CreateSlider({
+		Name = 'Attack range',
+		Min = 1,
+		Max = 30,
+		Default = 13,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	AngleSlider = Killaura:CreateSlider({
+		Name = 'Max angle',
+		Min = 1,
+		Max = 360,
+		Default = 90
+	})
+	Max = Killaura:CreateSlider({
+		Name = 'Max targets',
+		Min = 1,
+		Max = 10,
+		Default = 10
+	})
+	Mouse = Killaura:CreateToggle({
+		Name = 'Require mouse down'
+	})
+	Lunge = Killaura:CreateToggle({
+		Name = 'Sword lunge only'
+	})
+	Killaura:CreateToggle({
+		Name = 'Show target',
+		Function = function(callback)
+			BoxSwingColor.Object.Visible = callback
+			BoxAttackColor.Object.Visible = callback
+	
+			if callback then
+				for i = 1, 10 do
+					local box = Instance.new('BoxHandleAdornment')
+					box.Adornee = nil
+					box.AlwaysOnTop = true
+					box.CFrame = CFrame.new(0, -0.5, 0)
+					box.Size = Vector3.new(3, 5, 3)
+					box.ZIndex = 0
+					box.Parent = vape.holder
+					Boxes[i] = box
+				end
+			else
+				for _, box in Boxes do
+					box:Destroy()
+				end
+				table.clear(Boxes)
+			end
+		end
+	})
+	BoxSwingColor = Killaura:CreateColorSlider({
+		Name = 'Target Color',
+		Darker = true,
+		DefaultHue = 0.6,
+		DefaultOpacity = 0.5,
+		Visible = false
+	})
+	BoxAttackColor = Killaura:CreateColorSlider({
+		Name = 'Attack Color',
+		Darker = true,
+		DefaultOpacity = 0.5,
+		Visible = false
+	})
+	Killaura:CreateToggle({
+		Name = 'Target particles',
+		Function = function(callback)
+			ParticleTexture.Object.Visible = callback
+			ParticleColor1.Object.Visible = callback
+			ParticleColor2.Object.Visible = callback
+			ParticleSize.Object.Visible = callback
+	
+			if callback then
+				for i = 1, 10 do
+					local part = Instance.new('Part')
+					part.Size = Vector3.new(2, 4, 2)
+					part.Anchored = true
+					part.CanCollide = false
+					part.Transparency = 1
+					part.CanQuery = false
+					part.Parent = Killaura.Enabled and gameCamera or nil
+					local particles = Instance.new('ParticleEmitter')
+					particles.Brightness = 1.5
+					particles.Size = NumberSequence.new(ParticleSize.Value)
+					particles.Shape = Enum.ParticleEmitterShape.Sphere
+					particles.Texture = ParticleTexture.Value
+					particles.Transparency = NumberSequence.new(0)
+					particles.Lifetime = NumberRange.new(0.4)
+					particles.Speed = NumberRange.new(16)
+					particles.Rate = 128
+					particles.Drag = 16
+					particles.ShapePartial = 1
+					particles.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
+						ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
+					})
+					particles.Parent = part
+					Particles[i] = part
+				end
+			else
+				for _, particle in Particles do
+					particle:Destroy()
+				end
+				table.clear(Particles)
+			end
+		end
+	})
+	ParticleTexture = Killaura:CreateTextBox({
+		Name = 'Texture',
+		Default = 'rbxassetid://14736249347',
+		Function = function()
+			for _, particle in Particles do
+				particle.ParticleEmitter.Texture = ParticleTexture.Value
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	ParticleColor1 = Killaura:CreateColorSlider({
+		Name = 'Color Begin',
+		Function = function(hue, sat, val)
+			for _, particle in Particles do
+				particle.ParticleEmitter.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, sat, val)),
+					ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
+				})
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	ParticleColor2 = Killaura:CreateColorSlider({
+		Name = 'Color End',
+		Function = function(hue, sat, val)
+			for _, particle in Particles do
+				particle.ParticleEmitter.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
+					ColorSequenceKeypoint.new(1, Color3.fromHSV(hue, sat, val))
+				})
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	ParticleSize = Killaura:CreateSlider({
+		Name = 'Size',
+		Min = 0,
+		Max = 1,
+		Default = 0.2,
+		Decimal = 100,
+		Function = function(val)
+			for _, particle in Particles do
+				particle.ParticleEmitter.Size = NumberSequence.new(val)
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	Face = Killaura:CreateToggle({
+		Name = 'Face target'
 	})
 end)
 
@@ -5582,7 +5974,7 @@ run(function()
 	artist.TextXAlignment = Enum.TextXAlignment.Left
 	artist.Parent = holder
 	local progress = Instance.new('Frame')
-	progress.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	progress.BackgroundColor3 = Color3.fromRGB(26, 25, 26)
 	progress.Position = UDim2.fromOffset(6, 43)
 	progress.Size = UDim2.new(1, -46, 0, 4)
 	progress.Parent = holder
@@ -5694,7 +6086,7 @@ run(function()
 				local currentTime = (data.timestamp / 1000)
 				local posAsTime = tonumber(data.player_state.position_as_of_timestamp) / 1000
 				local diff = currentTime - (tonumber(data.player_state.timestamp) / 1000)
-				self.playPosition = posAsTime + diff
+				self.playPosition = posAsTime + (data.player_state.is_paused and 0 or diff)
 				self.playRate = data.player_state.playback_speed
 				self.playDuration = tonumber(data.player_state.duration) / 1000
 	
@@ -5804,7 +6196,7 @@ run(function()
 			if not self.Cache[id] then
 				self.Cache[id] = {Artists = {'None'}}
 	
-				if self.Data.fetchKey then
+				if self.Data.fetchKey and not id:find('spotify:local') then
 					task.spawn(function()
 						local dataRequest = safeRequest({
 							Url = 'https://api-partner.spotify.com/pathfinder/v2/query',
@@ -5834,12 +6226,17 @@ run(function()
 	
 						if dataRequest.Success then
 							local data = httpService:JSONDecode(dataRequest.Body)
+							local track = data.data.lookup[1]
 	
-							if data.data.lookup[1] then
+							if track and track.data then
 								table.clear(self.Cache[id].Artists)
 	
-								for _, artist in data.data.lookup[1].data.artists.items do
-									table.insert(self.Cache[id].Artists, artist.profile.name)
+								if track.data.__typename == 'Track' then
+									for _, artist in track.data.artists.items do
+										table.insert(self.Cache[id].Artists, artist.profile.name)
+									end
+								elseif track.data.__typename == 'Episode' then
+									table.insert(self.Cache[id].Artists, track.data.podcastV2.data.publisher.name)
 								end
 	
 								if self.track == id then
@@ -5940,6 +6337,8 @@ run(function()
 	
 					if registerReq.Success then
 						self:Callback(httpService:JSONDecode(registerReq.Body))
+					else
+						notif('Spotify', 'Failed to register device: '..registerReq.Body, 30, 'alert')
 					end
 				else
 					notif('Spotify', 'Failed to register device: '..deviceReq.Body, 30, 'alert')
@@ -6020,12 +6419,15 @@ run(function()
 			if data.expireTime > os.time() then
 				self.Data = data
 			else
+				notif('Spotify', 'Authenticating...', 10, 'info')
+	
 				local success
 				success, data = pcall(function()
 					return self:Refresh()
 				end)
 	
 				if success then
+					notif('Spotify', 'Logged in!', 10, 'info')
 					writefile('newvape/profiles/spotifydata.txt', httpService:JSONEncode(data))
 					self.Data = data
 				else
@@ -6051,7 +6453,7 @@ run(function()
 			local pingCooldown = os.clock() + 30
 	
 			repeat
-				task.wait(1)
+				local delta = task.wait(0.1)
 	
 				if self.Socket then
 					if self.syncTime and (os.clock() - self.syncTime) > 10 then
@@ -6066,8 +6468,8 @@ run(function()
 					end
 	
 					if self.playPosition then
-						self.playPosition = math.clamp(self.playPosition + self.playRate, 0.01, self.playDuration)
-						duration.Text = (self.playPosition // 60)..':'..string.format('%02i', (self.playPosition // 1) % 60)
+						self.playPosition = math.clamp(self.playPosition + (delta * self.playRate), 0.01, self.playDuration)
+						duration.Text = (self.playPosition // 60)..':'..string.format('%02i', self.playPosition % 60)
 						fill.Size = UDim2.fromScale(self.playPosition / self.playDuration, 1)
 					end
 				end
@@ -7053,6 +7455,263 @@ run(function()
 end)
 
 run(function()
+	local Atmosphere
+	local Toggles = {}
+	local newobjects, oldobjects = {}, {}
+	local apidump = {
+		Sky = {
+			SkyboxUp = 'Text',
+			SkyboxDn = 'Text',
+			SkyboxLf = 'Text',
+			SkyboxRt = 'Text',
+			SkyboxFt = 'Text',
+			SkyboxBk = 'Text',
+			SunTextureId = 'Text',
+			SunAngularSize = 'Number',
+			MoonTextureId = 'Text',
+			MoonAngularSize = 'Number',
+			StarCount = 'Number'
+		},
+		Atmosphere = {
+			Color = 'Color',
+			Decay = 'Color',
+			Density = 'Number',
+			Offset = 'Number',
+			Glare = 'Number',
+			Haze = 'Number'
+		},
+		BloomEffect = {
+			Intensity = 'Number',
+			Size = 'Number',
+			Threshold = 'Number'
+		},
+		DepthOfFieldEffect = {
+			FarIntensity = 'Number',
+			FocusDistance = 'Number',
+			InFocusRadius = 'Number',
+			NearIntensity = 'Number'
+		},
+		SunRaysEffect = {
+			Intensity = 'Number',
+			Spread = 'Number'
+		},
+		ColorCorrectionEffect = {
+			TintColor = 'Color',
+			Saturation = 'Number',
+			Contrast = 'Number',
+			Brightness = 'Number'
+		}
+	}
+	
+	local function removeObject(v)
+		if not table.find(newobjects, v) then
+			local toggle = Toggles[v.ClassName]
+			if toggle and toggle.Toggle.Enabled then
+				if v.Parent then
+					table.insert(oldobjects, v)
+					v.Parent = game
+				end
+			end
+		end
+	end
+	
+	Atmosphere = vape.Legit:CreateModule({
+		Name = 'Atmosphere',
+		Function = function(callback)
+			if callback then
+				for _, v in lightingService:GetChildren() do
+					removeObject(v)
+				end
+	
+				Atmosphere:Clean(lightingService.ChildAdded:Connect(function(v)
+					task.defer(removeObject, v)
+				end))
+	
+				for i, v in Toggles do
+					if v.Toggle.Enabled then
+						local obj = Instance.new(i)
+						for i2, v2 in v.Objects do
+							if v2.Type == 'ColorSlider' then
+								obj[i2] = Color3.fromHSV(v2.Hue, v2.Sat, v2.Value)
+							else
+								obj[i2] = apidump[i][i2] ~= 'Number' and v2.Value or tonumber(v2.Value) or 0
+							end
+						end
+						obj.Parent = lightingService
+						table.insert(newobjects, obj)
+					end
+				end
+			else
+				for _, v in newobjects do
+					v:Destroy()
+				end
+	
+				for _, v in oldobjects do
+					v.Parent = lightingService
+				end
+	
+				table.clear(newobjects)
+				table.clear(oldobjects)
+			end
+		end,
+		Tooltip = 'Custom lighting objects'
+	})
+	for i, v in apidump do
+		Toggles[i] = {Objects = {}}
+		Toggles[i].Toggle = Atmosphere:CreateToggle({
+			Name = i,
+			Function = function(callback)
+				if Atmosphere.Enabled then
+					Atmosphere:Toggle()
+					Atmosphere:Toggle()
+				end
+	
+				for _, toggle in Toggles[i].Objects do
+					toggle.Object.Visible = callback
+				end
+			end
+		})
+	
+		for i2, v2 in v do
+			if v2 == 'Text' or v2 == 'Number' then
+				Toggles[i].Objects[i2] = Atmosphere:CreateTextBox({
+					Name = i2,
+					Function = function(enter)
+						if Atmosphere.Enabled and enter then
+							Atmosphere:Toggle()
+							Atmosphere:Toggle()
+						end
+					end,
+					Darker = true,
+					Default = v2 == 'Number' and '0' or nil,
+					Visible = false
+				})
+			elseif v2 == 'Color' then
+				Toggles[i].Objects[i2] = Atmosphere:CreateColorSlider({
+					Name = i2,
+					Function = function()
+						if Atmosphere.Enabled then
+							Atmosphere:Toggle()
+							Atmosphere:Toggle()
+						end
+					end,
+					Darker = true,
+					Visible = false
+				})
+			end
+		end
+	end
+end)
+
+run(function()
+	local Breadcrumbs
+	local Texture
+	local Lifetime
+	local Thickness
+	local FadeIn
+	local FadeOut
+	local trail, point, point2
+	
+	Breadcrumbs = vape.Legit:CreateModule({
+		Name = 'Breadcrumbs',
+		Function = function(callback)
+			if callback then
+				point = Instance.new('Attachment')
+				point.Position = Vector3.new(0, Thickness.Value - 2.7, 0)
+				point2 = Instance.new('Attachment')
+				point2.Position = Vector3.new(0, -Thickness.Value - 2.7, 0)
+				trail = Instance.new('Trail')
+				trail.Texture = Texture.Value == '' and 'http://www.roblox.com/asset/?id=14166981368' or Texture.Value
+				trail.TextureMode = Enum.TextureMode.Static
+				trail.Color = ColorSequence.new(Color3.fromHSV(FadeIn.Hue, FadeIn.Sat, FadeIn.Value), Color3.fromHSV(FadeOut.Hue, FadeOut.Sat, FadeOut.Value))
+				trail.Lifetime = Lifetime.Value
+				trail.Attachment0 = point
+				trail.Attachment1 = point2
+				trail.FaceCamera = true
+	
+				Breadcrumbs:Clean(trail)
+				Breadcrumbs:Clean(point)
+				Breadcrumbs:Clean(point2)
+				Breadcrumbs:Clean(entitylib.Events.LocalAdded:Connect(function(ent)
+					point.Parent = ent.HumanoidRootPart
+					point2.Parent = ent.HumanoidRootPart
+					trail.Parent = gameCamera
+				end))
+	
+				if entitylib.isAlive then
+					point.Parent = entitylib.character.RootPart
+					point2.Parent = entitylib.character.RootPart
+					trail.Parent = gameCamera
+				end
+			else
+				trail = nil
+				point = nil
+				point2 = nil
+			end
+		end,
+		Tooltip = 'Shows a trail behind your character'
+	})
+	Texture = Breadcrumbs:CreateTextBox({
+		Name = 'Texture',
+		Placeholder = 'Texture Id',
+		Function = function(enter)
+			if enter and trail then
+				trail.Texture = Texture.Value == '' and 'http://www.roblox.com/asset/?id=14166981368' or Texture.Value
+			end
+		end
+	})
+	FadeIn = Breadcrumbs:CreateColorSlider({
+		Name = 'Fade In',
+		Function = function(hue, sat, val)
+			if trail then
+				trail.Color = ColorSequence.new(Color3.fromHSV(hue, sat, val), Color3.fromHSV(FadeOut.Hue, FadeOut.Sat, FadeOut.Value))
+			end
+		end
+	})
+	FadeOut = Breadcrumbs:CreateColorSlider({
+		Name = 'Fade Out',
+		Function = function(hue, sat, val)
+			if trail then
+				trail.Color = ColorSequence.new(Color3.fromHSV(FadeIn.Hue, FadeIn.Sat, FadeIn.Value), Color3.fromHSV(hue, sat, val))
+			end
+		end
+	})
+	Lifetime = Breadcrumbs:CreateSlider({
+		Name = 'Lifetime',
+		Min = 1,
+		Max = 5,
+		Default = 3,
+		Decimal = 10,
+		Function = function(val)
+			if trail then
+				trail.Lifetime = val
+			end
+		end,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	Thickness = Breadcrumbs:CreateSlider({
+		Name = 'Thickness',
+		Min = 0,
+		Max = 2,
+		Default = 0.1,
+		Decimal = 100,
+		Function = function(val)
+			if point then
+				point.Position = Vector3.new(0, val - 2.7, 0)
+			end
+			if point2 then
+				point2.Position = Vector3.new(0, -val - 2.7, 0)
+			end
+		end,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+end)
+
+run(function()
 	local Cape
 	local Texture
 	local part, motor
@@ -7671,6 +8330,7 @@ end)
 
 run(function()
 	local Ping
+	local Data
 	local label
 	
 	Ping = vape.Legit:CreateModule({
@@ -7678,7 +8338,8 @@ run(function()
 		Function = function(callback)
 			if callback then
 				repeat
-					label.Text = math.floor(tonumber(stats.PerformanceStats.Ping:GetValue()))..' ms'
+					local obj = Data.Enabled and stats.Network.ServerStatsItem['Data Ping'] or stats.PerformanceStats.Ping
+					label.Text = math.floor(tonumber(obj:GetValue()))..' ms'
 					task.wait(1)
 				until not Ping.Enabled
 			end
@@ -7701,6 +8362,10 @@ run(function()
 			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 			label.BackgroundTransparency = 1 - opacity
 		end
+	})
+	Data = Ping:CreateToggle({
+		Name = 'Data Ping',
+		Default = true
 	})
 	label = Instance.new('TextLabel')
 	label.Size = UDim2.new(0, 100, 0, 41)
