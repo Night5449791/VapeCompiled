@@ -2027,6 +2027,10 @@ run(function()
 							local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
 	
 							for _, entity in entities do
+								if lplr.Team == teams.Guards and entity.Player.Team == teams.Guards then
+									continue
+								end
+	
 								local delta = (entity.RootPart.Position - selfpos)
 								local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
 								if angle > (math.rad(AngleSlider.Value) / 2) then continue end
