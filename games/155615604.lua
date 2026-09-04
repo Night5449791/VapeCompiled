@@ -518,17 +518,13 @@ run(function()
 	end
 
 	vape:Clean(replicatedStorage.Killfeed.ChildAdded:Connect(function(obj)
-		local names = {}
+		local killer = obj.Name:match('@([^%)%s]+)')
+		local victim = obj.Name:match('killed%s+([^%s]+)')
+		if not killer or not victim then
+			return
+		end
 
-		-- killer
-		local start = obj.Name:find('@')
-		local endchar = obj.Name:find(')')
-		table.insert(names, obj.Name:sub(start + 1, endchar - 1))
-
-		-- victim
-		start = obj.Name:find('killed ') + 7
-		endchar = obj.Name:find(' ', start)
-		table.insert(names, obj.Name:sub(start, endchar - 1))
+		local names = {killer, victim}
 
 		vapeEvents.PlayerKill:Fire(unpack(names))
 		if names[1] == lplr.Name then
@@ -1049,15 +1045,22 @@ end)
 
 run(function()
 	local AntiCarFling
+	local CarContainer
+	local CarContainerParent
 	AntiCarFling = vape.Categories.Blatant:CreateModule({
 		Name = 'AntiCarFling',
 		Function = function(callback)
 			if callback then
-				if workspace:FindFirstChild('CarContainer') then
-					game.Workspace.CarContainer:Destroy()
+				CarContainer = workspace:FindFirstChild('CarContainer')
+				if CarContainer then
+					CarContainerParent = CarContainer.Parent
+					CarContainer.Parent = nil
 				end
-	            notif('AntiCarFling', 'Deleted all cars, rejoin to see cars.', 5, 'alert')
-				AntiCarFling:Toggle()
+				notif('AntiCarFling', 'hided cars.', 5, 'alert')
+			elseif CarContainer then
+				CarContainer.Parent = CarContainerParent
+				CarContainer = nil
+				CarContainerParent = nil
 			end
 		end,
 		Tooltip = 'just prevents u getting fucked by cars'
@@ -2173,13 +2176,23 @@ end)
 run(function()
 	local KillNotifications
 	
+	local function getPlayerName(player)
+		if typeof(player) == 'Instance' and player:IsA('Player') then
+			return player.Name
+		end
+	
+		return type(player) == 'string' and player or nil
+	end
+	
 	KillNotifications = vape.Categories.Render:CreateModule({
 		Name = 'KillNotifications',
 		Function = function(callback)
 			if callback then
 				KillNotifications:Clean(vapeEvents.PlayerKill.Event:Connect(function(killer, victim)
-					if victim == lplr.Name and killer ~= lplr.Name then
-						notif('KillNotifications', killer..' killed you!', 5)
+					local killerName = getPlayerName(killer)
+					local victimName = getPlayerName(victim)
+					if victimName == lplr.Name and killerName and killerName ~= lplr.Name then
+						notif('KillNotifications', killerName..' killed you!', 5)
 					end
 				end))
 			end
@@ -2367,6 +2380,10 @@ run(function()
 	local Toggles, Lists, Cloned, Presets = {}, {}, {}, {}
 	
 	local function sendMessage(name, obj, default)
+		if obj == lplr then
+			return
+		end
+	
 		local message = default
 		if #Lists[name].ListEnabled > 0 then
 			if #Cloned[name] <= 0 then
@@ -2525,7 +2542,6 @@ run(function()
 	-- we all code for shits lol
 	
 	local CheaterDetector
-	local cUsernames
 	local Users
 	
 	local cUsernames = {
@@ -2573,7 +2589,6 @@ run(function()
 		['juanpro231ew'] = "invalid state Swimming",
 		["voidwalker5346"] = "invalid animation (car kick)",
 		["mchser3"] = "invalid state Swimming",
-		["rackasauras"] = "speed",
 		["ang5454"] = "highjump",
 		['rackasauras'] = 'speed',
 		["dobys149"] = "phase/noclip",
@@ -2587,7 +2602,11 @@ run(function()
 	}
 	
 	local function playerAdded(plr)
-		local reason = (Users and table.find(Users.ListEnabled, tostring(plr.UserId))) or cUsernames[plr.Name]	
+		local reason = cUsernames[plr.Name]
+		if Users then
+			reason = table.find(Users.ListEnabled, tostring(plr.UserId)) or reason
+		end
+	
 		if reason then
 			notif('CheaterDetector', 'Cheater Detected ('..reason..'): '..plr.Name, 60, 'alert')
 			whitelist.customtags[plr.Name] = {{text = 'CHEATER', color = Color3.new(1, 0, 0)}}
