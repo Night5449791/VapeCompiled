@@ -1979,28 +1979,6 @@ run(function()
 end)
 
 run(function()
-	local Desync
-	local hook
-	
-	Desync = vape.Categories.Blatant:CreateModule({
-		Name = 'Desync',
-		Function = function(callback)
-			if callback then
-				if not rakNetCheck('Desync') then
-					Desync:Toggle()
-					return
-				end
-	
-				raknet.desync(true)
-			else
-				raknet.desync(false)
-			end
-		end,
-		Tooltip = 'Prevent the server from replicating your current position to other players.'
-	})
-end)
-
-run(function()
 	local DiedTP
 	local lastCFrame
 	
