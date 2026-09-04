@@ -2610,36 +2610,45 @@ run(function()
 end)
 
 run(function()
-	local ToxicDetector
-	local tUsernames
-	
-	local tUsernames = {
-		['maxsully124'] = 'underaged + toxic on cheater',
-		['charIespl'] = 'sad guy cant realize i didnt kick him',
-		['gundpro99'] = '"buddy you ain tuff", kys ninja',
-		['PIutto777'] = 'he called me mossad agent + toxic',
+	local ToolGrip
+	local DefaultGrip = Vector3.new(1, 2, 0)
+	local SpecialGrips = {
+		['Remington 870'] = Vector3.new(1, 2, 1.5),
+		['AK-47'] = Vector3.new(1, 2, 1.5)
 	}
 	
-	local function playerAdded(plr)
-		local reason = (Users and table.find(Users.ListEnabled, tostring(plr.UserId))) or cUsernames[plr.Name]	
-		if reason then
-			notif('ToxicDetector', 'Toxic Detected ('..reason..'): '..plr.Name, 60, 'warn')
-			whitelist.customtags[plr.Name] = {{text = 'TOXIC', color = Color3.new(255, 255, 0)}}
-			tempTargets[plr.Name] = true
+	local function ApplyGrip(tool)
+		if tool:IsA('Tool') then
+			local grip = SpecialGrips[tool.Name] or DefaultGrip
+			if tool.GripPos ~= grip then
+				tool.GripPos = grip
+			end
 		end
 	end
 	
-	ToxicDetector = vape.Categories.Utility:CreateModule({
-		Name = 'ToxicDetector',
+	local function EntityAdded()
+		local backpack = lplr:FindFirstChildWhichIsA('Backpack')
+		if not backpack then
+			return
+		end
+	
+		ToolGrip:Clean(backpack.ChildAdded:Connect(ApplyGrip))
+		for _, tool in backpack:GetChildren() do
+			ApplyGrip(tool)
+		end
+	end
+	
+	ToolGrip = vape.Categories.Blatant:CreateModule({
+		Name = 'ToolGrip',
 		Function = function(callback)
 			if callback then
-				ToxicDetector:Clean(playersService.PlayerAdded:Connect(playerAdded))
-				for _, v in playersService:GetPlayers() do
-					task.spawn(playerAdded, v)
+				ToolGrip:Clean(entitylib.Events.LocalAdded:Connect(EntityAdded))
+				if entitylib.isAlive then
+					task.spawn(EntityAdded)
 				end
 			end
 		end,
-		Tooltip = 'Detects people with history of toxic, etc',
+		Tooltip = 'applies tool grip pos'
 	})
 end)
 
