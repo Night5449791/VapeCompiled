@@ -2579,9 +2579,8 @@ run(function()
 	                        end
 						end
 					end
-				)
+				)()
 			end
-		end,
 		Tooltip = 'Sends a notification of who killed you.'
 	})
 	
