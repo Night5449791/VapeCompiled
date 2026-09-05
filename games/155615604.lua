@@ -547,7 +547,8 @@ run(function()
 			cheaterkicked:Increment()
 
 			task.defer(function()
-				vapeEvents.CheaterKicked:Fire(msg:sub(1, msg:find(' ')))
+				local kickedName = msg:match('^(.-)%s+kicked') or msg:match('^(.-) kicked')
+				vapeEvents.CheaterKicked:Fire(kickedName or msg:sub(1, msg:find(' ')))
 			end)
 		end
 	end))
@@ -2810,11 +2811,17 @@ run(function()
 	local AutoToxic
 	local Toggles, Lists, Cloned, Presets = {}, {}, {}, {}
 	
-	local function sendMessage(name, obj, default)
-		if obj == lplr then
-			return
+	local function getUsername(value)
+		value = tostring(value or ''):gsub('^%s+', ''):gsub('%s+$', '')
+		for _, player in playersService:GetPlayers() do
+			if player.Name == value or player.DisplayName == value then
+				return player.Name
+			end
 		end
+		return value
+	end
 	
+	local function sendMessage(name, obj, default)
 		local message = default
 		if #Lists[name].ListEnabled > 0 then
 			if #Cloned[name] <= 0 then
@@ -2828,7 +2835,7 @@ run(function()
 	
 		if not message then return end
 	
-		message = message and message:gsub('<obj>', obj or '') or ''
+		message = message and message:gsub('<obj>', getUsername(obj)) or ''
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 			if textChatService:CanUserChatAsync(lplr.UserId) then
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
