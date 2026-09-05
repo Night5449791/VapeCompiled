@@ -36,6 +36,7 @@ local getfontbounds = vape.Libraries.getfontbounds
 local pl = {}
 local Spring = {}
 local TracerHook = {Hooks = {}}
+local VehicleWallbang = {Enabled = false}
 local oldshoot, oldequip
 local aimTimer, shootTimer, aimVec = os.clock(), os.clock()
 local arrestCooldown = os.clock()
@@ -141,19 +142,17 @@ run(function()
 			return table.unpack(self.Cache[part])
 		end
 
-		local scanPositions = {origin}
 		local hitboxPositions = {}
-		local isTargetVisible = checkPoint(target, overlapParams)
+		if checkPoint(target, overlapParams) then
+			if extra and (origin - extra).Magnitude < 7.5 then
+				self.Cache[part] = {extra}
+				return extra
+			end
 
-		if extra and (origin - extra).Magnitude < 7.5 and isTargetVisible then
-			self.Cache[part] = {extra}
-			return extra
-		end
-
-		if isTargetVisible then
 			table.insert(hitboxPositions, target)
 		end
 
+		local scanPositions = {origin}
 		local diff = CFrame.lookAt(origin * Vector3.new(1, 0, 1), target * Vector3.new(1, 0, 1)).LookVector
 		for _, normal in Enum.NormalId:GetEnumItems() do
 			local offset = Vector3.fromNormalId(normal)
@@ -190,7 +189,7 @@ run(function()
 	end
 
 	function OriginScanner:UpdateIgnore()
-		local ignoreList = {lplr.Character}
+		local ignoreList = VehicleWallbang.Enabled and {lplr.Character, workspace.CarContainer} or {lplr.Character}
 		for _, entity in entitylib.List do
 			table.insert(ignoreList, entity.Character)
 		end
@@ -259,7 +258,7 @@ run(function()
 		if entity.NPC then return true end
 		if isFriend(entity.Player) then return false end
 		if not select(2, whitelist:get(entity.Player)) then return false end
-		if vape.Settings.Modules.Options['Teams by server'].Enabled and not skip then
+		if vape.Settings.Modules.Options['Teams by server'].Enabled and (not skip or lplr.Team == teams.Guards) then
 			return lplr.Team ~= entity.Player.Team and entity.Player.Team ~= teams.Neutral
 		end
 		return true
@@ -403,8 +402,8 @@ run(function()
 
 	entitylib.Wallcheck = function(origin, position, checkPosition, part, entity)
 		local ray = workspace.Raycast(workspace, position, (origin - position), OriginScanner.Ray)
-		if ray then
-			return not checkPosition or not OriginScanner:Scan(checkPosition, position, ray.Position + ray.Normal * 0.01, part, entity)
+		if ray or workspace.Raycast(workspace, origin, (position - origin), OriginScanner.Ray) then
+			return not checkPosition or not OriginScanner:Scan(checkPosition, position, ray and ray.Position + ray.Normal * 0.01 or nil, part, entity)
 		end
 
 		return false
@@ -436,6 +435,7 @@ run(function()
 
 		for _, connection in getconnections(lplr.CharacterAdded) do
 			if connection.Function and debug.info(connection.Function, 's'):find('GunController') then
+				pl.ShootParams = debug.getupvalue(connection.Function, 2)
 				pl.Equip = debug.getupvalue(connection.Function, 3)
 				break
 			end
@@ -518,13 +518,17 @@ run(function()
 	end
 
 	vape:Clean(replicatedStorage.Killfeed.ChildAdded:Connect(function(obj)
-		local killer = obj.Name:match('@([^%)%s]+)')
-		local victim = obj.Name:match('killed%s+([^%s]+)')
-		if not killer or not victim then
-			return
-		end
+		local names = {}
 
-		local names = {killer, victim}
+		-- killer
+		local start = obj.Name:find('@')
+		local endchar = obj.Name:find(')')
+		table.insert(names, obj.Name:sub(start + 1, endchar - 1))
+
+		-- victim
+		start = obj.Name:find('killed ') + 7
+		endchar = obj.Name:find(' ', start)
+		table.insert(names, obj.Name:sub(start, endchar - 1))
 
 		vapeEvents.PlayerKill:Fire(unpack(names))
 		if names[1] == lplr.Name then
@@ -697,6 +701,7 @@ run(function()
 	local AutoFire = {Enabled = false}
 	local AutoFireRate
 	local AutoFireTaser
+	local AutoFireSwitch
 	local Wallbang
 	local CircleColor
 	local CircleTransparency
@@ -711,6 +716,22 @@ run(function()
 		end
 
 		return inputService.GetMouseLocation(inputService)
+	end
+
+	local function getShootTool()
+		local tool = lplr.Character:FindFirstChildWhichIsA('Tool')
+		if tool and tool:GetAttribute('FireRate') and (not tool:GetAttribute('Local_IsShooting')) and (tool:GetAttribute('Local_ReloadSession') or 0) <= 0 and (tool:GetAttribute('Local_CurrentAmmo') or 1) > 0 then
+			return tool
+		end
+
+		local backpack = lplr:FindFirstChildWhichIsA('Backpack')
+		if backpack then
+			for _, tool in backpack:GetChildren() do
+				if tool:IsA('Tool') and tool:GetAttribute('FireRate') and (not tool:GetAttribute('Local_IsShooting')) and (tool:GetAttribute('Local_ReloadSession') or 0) <= 0 and tool.Name ~= 'Taser' then
+					return tool
+				end
+			end
+		end
 	end
 
 	local function getTarget(origin, limit, attackcheck)
@@ -753,10 +774,14 @@ run(function()
 		aimVec = args[2]
 
 		if Wallbang.Enabled then
-			local ray = workspace:Raycast(args[2], (origin - args[2]), OriginScanner.Ray)
+			local ray
+			if not OriginScanner.Cache[targetPart] then
+				ray = workspace:Raycast(args[2], (origin - args[2]), OriginScanner.Ray)
+			end
 
-			if ray then
-				local newOrigin, hit = OriginScanner:Scan(entitylib.character.RootPart.Position, args[2], ray.Position + ray.Normal * 0.01, targetPart, entity)
+
+			if OriginScanner.Cache[targetPart] or ray or workspace:Raycast(origin, (args[2] - origin), OriginScanner.Ray) then
+				local newOrigin, hit = OriginScanner:Scan(entitylib.character.RootPart.Position, args[2], ray and ray.Position + ray.Normal * 0.01 or nil, targetPart, entity)
 
 				if newOrigin then
 					for index, value in debug.getstack(3) do
@@ -800,6 +825,15 @@ run(function()
 						local tool = lplr.Character:FindFirstChildWhichIsA('Tool')
 						local gundata = debug.getupvalue(oldshoot or pl.Shoot, 10)
 						local ammo = tool and tool:GetAttribute('Local_CurrentAmmo') or 0
+
+						if AutoFireSwitch.Enabled and entitylib.isAlive then
+							local ideal = getShootTool()
+							if tool and ideal and tool ~= ideal then
+								entitylib.character.Humanoid:EquipTool(ideal)
+								gundata = nil
+							end
+						end
+
 						if gundata and ammo > 0 and not tool:GetAttribute('Local_IsShooting') then
 							local limit = gundata.Range or 1000
 							local taser = gundata and gundata.Behavior == 'Taser'
@@ -816,7 +850,7 @@ run(function()
 
 							if entity and entitylib.character.Humanoid.Health > 0 then
 								if not ((taser or AutoFireTaser.Enabled) and (entity.Character:GetAttribute('Tased') or entity.Character:GetAttribute('Arrested'))) then
-									fireDelay = os.clock() + (ammo > 1 and gundata.FireRate or 1 / AutoFireRate.Value)
+									fireDelay = os.clock() + (AutoFireSwitch.Enabled and 0.05 or ammo > 1 and gundata.FireRate or 1 / AutoFireRate.Value)
 									local obj = {UserInputState = Enum.UserInputState.Begin, UserInputType = Enum.UserInputType.MouseButton1, Position = Vector3.zero}
 									task.spawn(pl.Shoot, obj)
 									obj.UserInputState = Enum.UserInputState.End
@@ -891,6 +925,7 @@ run(function()
 		Function = function(callback)
 			AutoFireRate.Object.Visible = callback
 			AutoFireTaser.Object.Visible = callback
+			AutoFireSwitch.Object.Visible = callback
 		end,
 		Tooltip = 'Automatically fires guns when the specified target conditions are met.'
 	})
@@ -907,6 +942,12 @@ run(function()
 		Name = 'Ignore Tased',
 		Visible = false,
 		Darker = true
+	})
+	AutoFireSwitch = SilentAim:CreateToggle({
+		Name = 'Auto Switch',
+		Visible = false,
+		Darker = true,
+		Tooltip = 'Spam switch guns while shooting to get fast damage, only good with multiple tools.'
 	})
 	Wallbang = SilentAim:CreateToggle({
 		Name = 'Wallbang',
@@ -979,7 +1020,7 @@ run(function()
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	
 	local function getTriggerBotTarget()
-		rayParams.FilterDescendantsInstances = {lplr.Character}
+		rayParams.FilterDescendantsInstances = VehicleWallbang.Enabled and {lplr.Character, workspace.CarContainer} or {lplr.Character}
 	
 		if entitylib.isAlive then
 			local tool = debug.getupvalue(oldshoot or pl.Shoot, 1)
@@ -1064,6 +1105,39 @@ run(function()
 			end
 		end,
 		Tooltip = 'just prevents u getting fucked by cars'
+	})
+end)
+
+run(function()
+	local AntiFling
+	local modified = {}
+	
+	local function Modify(part)
+		if part:IsA('BasePart') and part.CollisionGroup == 'Vehicles' then
+			if not modified[part] then
+				modified[part] = part.CanCollide
+			end
+	
+			part.CanCollide = false
+		end
+	end
+	
+	AntiFling = vape.Categories.Blatant:CreateModule({
+		Name = 'AntiFling',
+		Function = function(callback)
+			if callback then
+				AntiFling:Clean(workspace.CarContainer.DescendantAdded:Connect(Modify))
+				for _, part in workspace.CarContainer:QueryDescendants('BasePart') do
+					Modify(part)
+				end
+			else
+				for part, value in modified do
+					part.CanCollide = value
+				end
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Prevent certain methods of flinging you'
 	})
 end)
 
@@ -1180,7 +1254,7 @@ run(function()
 				AntiKillPlane:Clean(runService.Heartbeat:Connect(function()
 					if entitylib.isAlive then
 						local root = entitylib.character.RootPart
-						local diff = math.min(root.Position.Y, 179.99) - root.Position.Y
+						local diff = math.clamp(root.Position.Y, -10, 179.99) - root.Position.Y
 						root.CFrame += Vector3.new(0, diff, 0)
 	
 						if math.abs(diff) > 0 and root.AssemblyLinearVelocity.Y > 0 then
@@ -1477,6 +1551,62 @@ run(function()
 end)
 
 run(function()
+	local AutoTaze
+	local Range
+	local VelocityCheck
+	local cooldown = 0
+	
+	AutoTaze = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoTaze',
+		Function = function(callback)
+			if callback then
+				repeat
+					local backpack = lplr:FindFirstChildWhichIsA('Backpack')
+					local taser = backpack and backpack:FindFirstChild('Taser')
+	
+					if taser and (taser:GetAttribute('CurrentAmmo') or 1) > 0 and cooldown < os.clock() and (arrestCooldown - os.clock()) < 3 then
+						if not VelocityCheck.Enabled or entitylib.isAlive and entitylib.character.RootPart.AssemblyLinearVelocity.Magnitude < 40 then
+							local entities = entitylib.AllPosition({
+								Range = Range.Value,
+								AttackCheck = false,
+								Wallcheck = true,
+								Part = 'Head',
+								Origin = entitylib.isAlive and entitylib.character.Head.Position or Vector3.zero,
+								Players = true
+							})
+	
+							for _, entity in entities do
+								if not (entity.Character:GetAttribute('Tased') or entity.Character:GetAttribute('Arrested')) then
+									cooldown = os.clock() + 2
+									entitylib.character.Humanoid:EquipTool(taser)
+									break
+								end
+							end
+						end
+					end
+	
+					task.wait(0.05)
+				until not AutoTaze.Enabled
+			end
+		end,
+		Tooltip = 'Automatically taze people around you. (only works with SilentAim AutoFire with Position Mode enabled)'
+	})
+	Range = AutoTaze:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 52,
+		Default = 52,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	VelocityCheck = AutoTaze:CreateToggle({
+		Name = 'Velocity Check',
+		Default = true
+	})
+end)
+
+run(function()
 	local FastChange
 	local ChooseTeam
 	
@@ -1681,10 +1811,6 @@ run(function()
 							local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
 	
 							for _, entity in entities do
-								if lplr.Team == teams.Guards and entity.Player.Team == teams.Guards then
-									continue
-								end
-	
 								local delta = (entity.RootPart.Position - selfpos)
 								local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
 								if angle > (math.rad(AngleSlider.Value) / 2) then continue end
@@ -2086,32 +2212,21 @@ run(function()
 end)
 
 run(function()
-	local VehicleWallbang
-	local modified = {}
-	
-	local function Modify(part)
-		if part:IsA('BasePart') then
-			if not modified[part] then
-				modified[part] = part.CanQuery
-			end
-	
-			part.CanQuery = false
-		end
-	end
-	
 	VehicleWallbang = vape.Categories.Blatant:CreateModule({
 		Name = 'VehicleWallbang',
 		Function = function(callback)
+			OriginScanner:UpdateIgnore()
+	
 			if callback then
-				VehicleWallbang:Clean(workspace.CarContainer.DescendantAdded:Connect(Modify))
-				for _, part in workspace.CarContainer:QueryDescendants('BasePart') do
-					Modify(part)
-				end
+				pl.ShootParams.FilterDescendantsInstances = {lplr.Character, workspace.CarContainer}
+	
+				VehicleWallbang:Clean(entitylib.Events.LocalAdded:Connect(function()
+					task.defer(function()
+						pl.ShootParams.FilterDescendantsInstances = {lplr.Character, workspace.CarContainer}
+					end)
+				end))
 			else
-				for i, v in modified do
-					i.CanQuery = v
-				end
-				table.clear(modified)
+				pl.ShootParams.FilterDescendantsInstances = {lplr.Character}
 			end
 		end,
 		Tooltip = 'Allow you to shoot through vehicles.'
@@ -2217,23 +2332,13 @@ end)
 run(function()
 	local KillNotifications
 	
-	local function getPlayerName(player)
-		if typeof(player) == 'Instance' and player:IsA('Player') then
-			return player.Name
-		end
-	
-		return type(player) == 'string' and player or nil
-	end
-	
 	KillNotifications = vape.Categories.Render:CreateModule({
 		Name = 'KillNotifications',
 		Function = function(callback)
 			if callback then
 				KillNotifications:Clean(vapeEvents.PlayerKill.Event:Connect(function(killer, victim)
-					local killerName = getPlayerName(killer)
-					local victimName = getPlayerName(victim)
-					if victimName == lplr.Name and killerName and killerName ~= lplr.Name then
-						notif('KillNotifications', killerName..' killed you!', 5)
+					if victim == lplr.Name and killer ~= lplr.Name then
+						notif('KillNotifications', killer..' killed you!', 5)
 					end
 				end))
 			end
@@ -2496,6 +2601,8 @@ end)
 run(function()
 	local CheatDetector
 	local AddTarget
+	local Teleport
+	local positions = {}
 	local overlap = OverlapParams.new()
 	overlap.CollisionGroup = 'Players'
 	overlap.FilterDescendantsInstances = {workspace.CarContainer, workspace.Doors}
@@ -2538,9 +2645,16 @@ run(function()
 					end
 				end))
 	
+				CheatDetector:Clean(entitylib.Events.EntityRemoved:Connect(function(entity)
+					positions[entity] = nil
+				end))
+	
+				local lastDelta = 0
 				repeat
 					for _, entity in entitylib.List do
 						if entity.Health > 0 and entity.Player then
+							local playerPos = entity.RootPart.Position
+	
 							if not checkPoint(entity.Head.Position, overlap) then
 								Cheats:Flag(entity.Player, 'phase/noclip', 20)
 							end
@@ -2552,8 +2666,14 @@ run(function()
 							local velo = entity.RootPart.AssemblyLinearVelocity
 							if not entity.Humanoid.SeatPart then
 								if (velo * Vector3.new(1, 0, 1)).Magnitude > 26 then
-									if #workspace:GetPartBoundsInRadius(entity.RootPart.Position, 30, caroverlap) <= 0 then
+									if #workspace:GetPartBoundsInRadius(playerPos, 30, caroverlap) <= 0 then
 										Cheats:Flag(entity.Player, 'speed', 20)
+									end
+								end
+	
+								if Teleport.Enabled and positions[entity] and ((playerPos - positions[entity]) * Vector3.new(1, 0, 1)).Magnitude > 20 and lastDelta < 0.1 then
+									if #workspace:GetPartBoundsInRadius(playerPos, 30, caroverlap) <= 0 then
+										Cheats:Flag(entity.Player, 'teleport', 1)
 									end
 								end
 	
@@ -2561,12 +2681,15 @@ run(function()
 									Cheats:Flag(entity.Player, 'highjump', 20)
 								end
 							end
+	
+							positions[entity] = playerPos
 						end
 					end
 	
-					task.wait(0.05)
+					lastDelta = task.wait(0.05)
 				until not CheatDetector.Enabled
 			else
+				table.clear(positions)
 				Cheats:Clear()
 			end
 		end,
@@ -2575,6 +2698,11 @@ run(function()
 	AddTarget = CheatDetector:CreateToggle({
 		Name = 'Temporary Target',
 		Tooltip = 'Add temporary combat module priority for cheaters.',
+		Default = true
+	})
+	Teleport = CheatDetector:CreateToggle({
+		Name = 'Teleport',
+		Tooltip = 'Detect people teleporting (EXPERIMENTAL)',
 		Default = true
 	})
 end)

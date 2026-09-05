@@ -202,7 +202,7 @@ do
 			createDownloader(path)
 
 			local success, data = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+				return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 			end)
 
 			if not success or data == '404: Not Found' then
@@ -828,8 +828,8 @@ function vape:LoadGUI()
 	scarcitybanner.BackgroundTransparency = 1
 	scarcitybanner.FontFace = uipallet.Font
 	scarcitybanner.Position = UDim2.fromScale(0, 0.97)
-	scarcitybanner.Size = UDim2.fromScale(1, 0.02)
-	scarcitybanner.Text = 'The discord link has been fixed, click the discord icon to join.'
+	scarcitybanner.Size = UDim2.fromScale(1, 0.018)
+	scarcitybanner.Text = 'All update logs and game support are found in the discord, click the discord icon to join.'
 	scarcitybanner.TextColor3 = Color3.new(1, 1, 1)
 	scarcitybanner.TextScaled = true
 	scarcitybanner.TextStrokeTransparency = 0.5
@@ -1078,7 +1078,7 @@ function vape:LoadGUI()
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end,
 		Tooltip = 'This will set your profile to the default settings of Vape'
@@ -1099,7 +1099,7 @@ function vape:LoadGUI()
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end,
 		Tooltip = 'Reloads vape for debugging purposes'
@@ -1232,7 +1232,7 @@ function vape:LoadGUI()
 				if shared.VapeDeveloper then
 					loadstring(readfile('newvape/loader.lua'), 'loader')()
 				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+					loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 				end
 			end
 		end,
@@ -7559,15 +7559,17 @@ components = {
 		end)
 		
 		add.MouseButton1Click:Connect(function()
-			if not table.find(component.List, textbox.Text) then
-				component:ChangeValue(textbox.Text)
+			local newText = props.TextFunction and props.TextFunction(textbox.Text) or textbox.Text
+			if not table.find(component.List, newText) then
+				component:ChangeValue(newText)
 				textbox.Text = ''
 			end
 		end)
 		
 		textbox.FocusLost:Connect(function(enter)
-			if enter and not table.find(component.List, textbox.Text) then
-				component:ChangeValue(textbox.Text)
+			local newText = props.TextFunction and props.TextFunction(textbox.Text) or textbox.Text
+			if enter and not table.find(component.List, newText) then
+				component:ChangeValue(newText)
 				textbox.Text = ''
 			end
 		end)

@@ -14,7 +14,7 @@ end
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -440,7 +440,7 @@ run(function()
 			return true
 		end
 
-		if arg == 'others' and plr ~= lplr then
+		if (arg == 'all' or arg == 'others') and plr ~= lplr then
 			return true
 		end
 
@@ -745,12 +745,12 @@ run(function()
 	function whitelist:update(first)
 		local suc = pcall(function()
 			local _, subbed = pcall(function()
-				return game:HttpGet('https://github.com/Night5449791/whitelists')
+				return game:HttpGet('https://github.com/7GrandDadPGN/whitelists')
 			end)
 			local commit = subbed:find('currentOid')
 			commit = commit and subbed:sub(commit + 13, commit + 52) or nil
 			commit = commit and #commit == 40 and commit or 'main'
-			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/Night5449791/whitelists/'..commit..'/PlayerWhitelist.json', true)
+			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/whitelists/'..commit..'/PlayerWhitelist.json', true)
 		end)
 		if not suc or not hash or not whitelist.get then return true end
 		whitelist.loaded = true
@@ -3252,15 +3252,23 @@ run(function()
 				SpinBot:Clean(runService.PreSimulation:Connect(function()
 					if entitylib.isAlive then
 						if Mode.Value == 'RotVelocity' then
-							local originalRotVelocity = entitylib.character.RootPart.RotVelocity
+							if entitylib.character.Humanoid.Sit then
+								return
+							end
+	
+							local original = entitylib.character.RootPart.AssemblyAngularVelocity
 							entitylib.character.Humanoid.AutoRotate = false
-							entitylib.character.RootPart.RotVelocity = Vector3.new(XToggle.Enabled and Value.Value or originalRotVelocity.X, YToggle.Enabled and Value.Value or originalRotVelocity.Y, ZToggle.Enabled and Value.Value or originalRotVelocity.Z)
+							entitylib.character.RootPart.AssemblyAngularVelocity = Vector3.new(XToggle.Enabled and Value.Value or original.X, YToggle.Enabled and Value.Value or original.Y, ZToggle.Enabled and Value.Value or original.Z)
 						elseif Mode.Value == 'CFrame' then
-							local val = math.rad((tick() * (20 * Value.Value)) % 360)
+							if entitylib.character.Humanoid.Sit then
+								return
+							end
+	
+							local val = math.rad((os.clock() * (20 * Value.Value)) % 360)
 							local x, y, z = entitylib.character.RootPart.CFrame:ToOrientation()
 							entitylib.character.RootPart.CFrame = CFrame.new(entitylib.character.RootPart.Position) * CFrame.Angles(XToggle.Enabled and val or x, YToggle.Enabled and val or y, ZToggle.Enabled and val or z)
 						elseif AngularVelocity then
-							AngularVelocity.Parent = entitylib.isAlive and entitylib.character.RootPart
+							AngularVelocity.Parent = entitylib.isAlive and not entitylib.character.Humanoid.Sit and entitylib.character.RootPart or nil
 							AngularVelocity.MaxTorque = Vector3.new(XToggle.Enabled and math.huge or 0, YToggle.Enabled and math.huge or 0, ZToggle.Enabled and math.huge or 0)
 							AngularVelocity.AngularVelocity = Vector3.new(Value.Value, Value.Value, Value.Value)
 						end
@@ -3286,6 +3294,7 @@ run(function()
 				AngularVelocity:Destroy()
 				AngularVelocity = nil
 			end
+	
 			AngularVelocity = val == 'BodyMover' and Instance.new('BodyAngularVelocity') or nil
 		end,
 		Tooltip = 'CFrame - Directly adjusts your characters angle\nRotVelocity - Sets the rotation velocity so that you spin\nBodyMover - Uses body movers to edit your rotation velocity'
@@ -3296,12 +3305,16 @@ run(function()
 		Max = 100,
 		Default = 40
 	})
-	XToggle = SpinBot:CreateToggle({Name = 'Spin X'})
+	XToggle = SpinBot:CreateToggle({
+		Name = 'Spin X'
+	})
 	YToggle = SpinBot:CreateToggle({
 		Name = 'Spin Y',
 		Default = true
 	})
-	ZToggle = SpinBot:CreateToggle({Name = 'Spin Z'})
+	ZToggle = SpinBot:CreateToggle({
+		Name = 'Spin Z'
+	})
 end)
 
 run(function()
@@ -6401,6 +6414,7 @@ run(function()
 	local Color
 	local Scale
 	local Background
+	local Stroke
 	WaypointFolder = Instance.new('Folder')
 	WaypointFolder.Parent = vape.holder
 	
@@ -6408,25 +6422,26 @@ run(function()
 		Name = 'Waypoints',
 		Function = function(callback)
 			if callback then
-				for _, v in List.ListEnabled do
-					local split = v:split('/')
+				for _, data in List.ListEnabled do
+					local split = data:split('/')
 					local tagSize = getfontbounds(removeTags(split[2]), 14 * Scale.Value, FontOption.Value, Vector2.new(100000, 100000))
 					local billboard = Instance.new('BillboardGui')
+					billboard.AlwaysOnTop = true
 					billboard.Size = UDim2.fromOffset(tagSize.X + 8, tagSize.Y + 7)
 					billboard.StudsOffsetWorldSpace = Vector3.new(unpack(split[1]:split(',')))
-					billboard.AlwaysOnTop = true
 					billboard.Parent = WaypointFolder
 					local tag = Instance.new('TextLabel')
 					tag.BackgroundColor3 = Color3.new()
-					tag.BorderSizePixel = 0
-					tag.Visible = true
-					tag.RichText = true
-					tag.FontFace = FontOption.Value
-					tag.TextSize = 14 * Scale.Value
 					tag.BackgroundTransparency = Background.Value
+					tag.BorderSizePixel = 0
+					tag.FontFace = FontOption.Value
+					tag.RichText = true
 					tag.Size = billboard.Size
 					tag.Text = split[2]
 					tag.TextColor3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+					tag.TextSize = 14 * Scale.Value
+					tag.TextStrokeTransparency = Stroke.Value
+					tag.Visible = true
 					tag.Parent = billboard
 				end
 			else
@@ -6447,20 +6462,17 @@ run(function()
 	})
 	List = Waypoints:CreateTextList({
 		Name = 'Points',
-		Placeholder = 'x, y, z/name',
+		Placeholder = '(name) | (x, y, z/name)',
 		Function = function()
 			if Waypoints.Enabled then
 				Waypoints:Toggle()
 				Waypoints:Toggle()
 			end
-		end
-	})
-	Waypoints:CreateButton({
-		Name = 'Add current position',
-		Function = function()
-			if entitylib.isAlive then
+		end,
+		TextFunction = function(text)
+			if not text:find('/') then
 				local pos = entitylib.character.RootPart.Position // 1
-				List:ChangeValue(pos.X..','..pos.Y..','..pos.Z..'/Waypoint '..(#List.List + 1))
+				return pos.X..','..pos.Y..','..pos.Z..'/'..text
 			end
 		end
 	})
@@ -6498,7 +6510,19 @@ run(function()
 		Max = 1,
 		Decimal = 10
 	})
-	
+	Stroke = Waypoints:CreateSlider({
+		Name = 'Stroke Transparency',
+		Function = function()
+			if Waypoints.Enabled then
+				Waypoints:Toggle()
+				Waypoints:Toggle()
+			end
+		end,
+		Default = 1,
+		Min = 0,
+		Max = 1,
+		Decimal = 10
+	})
 end)
 
 run(function()
