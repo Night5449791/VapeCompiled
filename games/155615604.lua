@@ -1109,39 +1109,6 @@ run(function()
 end)
 
 run(function()
-	local AntiFling
-	local modified = {}
-	
-	local function Modify(part)
-		if part:IsA('BasePart') and part.CollisionGroup == 'Vehicles' then
-			if not modified[part] then
-				modified[part] = part.CanCollide
-			end
-	
-			part.CanCollide = false
-		end
-	end
-	
-	AntiFling = vape.Categories.Blatant:CreateModule({
-		Name = 'AntiFling',
-		Function = function(callback)
-			if callback then
-				AntiFling:Clean(workspace.CarContainer.DescendantAdded:Connect(Modify))
-				for _, part in workspace.CarContainer:QueryDescendants('BasePart') do
-					Modify(part)
-				end
-			else
-				for part, value in modified do
-					part.CanCollide = value
-				end
-				table.clear(modified)
-			end
-		end,
-		Tooltip = 'Prevent certain methods of flinging you'
-	})
-end)
-
-run(function()
 	local AntiInvisible
 	local threads = {}
 	local whitelist = {
@@ -1552,64 +1519,27 @@ end)
 
 run(function()
 	local FastChange
+	local reqteam = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes"):FindFirstChild("RequestTeamChange")
 	local ChooseTeam
-	
-	local function requestTeam(reqteam, team)
-	    return reqteam and pcall(reqteam.InvokeServer, reqteam, team, 1) or false
-	end
-	
-	local function waitForTeam(team, timeout)
-	    local deadline = os.clock() + timeout
-	    while (not lplr.Team or lplr.Team.Name ~= team.Name) and os.clock() < deadline do
-	        task.wait()
-	    end
-	    return lplr.Team and lplr.Team.Name == team.Name
-	end
-	
-	local function changeTeam(reqteam, team, neutralTeam)
-	    if lplr.Team and lplr.Team.Name == team.Name then
-	        return true
-	    end
-	
-	    if not lplr.Team or lplr.Team.Name ~= neutralTeam.Name then
-	        requestTeam(reqteam, neutralTeam)
-	        if not waitForTeam(neutralTeam, 2) then
-	            return false
-	        end
-	    end
-	
-	    if not requestTeam(reqteam, team) then
-	        return false
-	    end
-	    return waitForTeam(team, 2)
-	end
 	
 	FastChange = vape.Categories.Blatant:CreateModule({
 	    Name = 'FastChange',
 	    Function = function(callback)
-	        if not callback then
-	            return
-	        end
-	
-	        local targetName = ChooseTeam.Value
-	        local targetTeam = teams:FindFirstChild(targetName)
-	        local neutralTeam = teams:FindFirstChild('Neutral')
-	        local fallbackName = targetName == 'Guards' and 'Inmates' or 'Guards'
-	        local fallbackTeam = teams:FindFirstChild(fallbackName)
-	        local remotes = replicatedStorage:FindFirstChild('Remotes')
-	        local reqteam = remotes and remotes:FindFirstChild('RequestTeamChange')
-	        if not reqteam or not neutralTeam or not targetTeam or not fallbackTeam then
-	            notif('FastChange', 'Team change remote is unavailable.', 5, 'alert')
+	        if callback then 
+	            if ChooseTeam.Value == 'Guards' then
+	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
+	                wait(1)
+	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Guards"), 1)
+	                
+	            elseif ChooseTeam.Value == 'Inmates' then
+	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
+	                wait(1)
+	                reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Inmates"), 1)
+	            end
 	            FastChange:Toggle()
-	            return
 	        end
-	
-	        if not changeTeam(reqteam, targetTeam, neutralTeam) and targetName == 'Guards' then
-	            changeTeam(reqteam, fallbackTeam, neutralTeam)
-	        end
-	        FastChange:Toggle()
 	    end,
-	    Tooltip = 'Quickly switch teams.'
+	    Tooltip = 'not-Automatically switch team'
 	})
 	
 	ChooseTeam = FastChange:CreateDropdown({
