@@ -2590,31 +2590,6 @@ run(function()
 		Name = 'AdvancedCheck',
 		Default = false
 	})
-	
-	--[[
-	local Players = game:GetService("Players")
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	
-	local LocalPlayer = Players.LocalPlayer
-	local meleeEvent = ReplicatedStorage:WaitForChild("meleeEvent")
-	
-	coroutine.wrap(function()
-	    while task.wait(0.5) do
-	        if  then
-	            local character = LocalPlayer.Character
-	            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	
-	            if rootPart then
-	                for _, player in ipairs(Players:GetPlayers()) do
-	                    if player ~= LocalPlayer then
-	                        
-	                    end
-	                end
-	            end
-	        end
-	    end
-	end)()
-	]]
 end)
 
 run(function()
