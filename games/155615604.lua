@@ -1759,10 +1759,12 @@ run(function()
 		Name = 'CarFling',
 		Function = function(callback)
 			if not callback then
+				AntiKillPlane:Toggle()
 				resetState()
 				return
 			end
 	
+			AntiKillPlane:Toggle()
 			local targetPlayer = selectedTarget()
 			local character = lplr.Character
 			local humanoid = character and character:FindFirstChildOfClass('Humanoid')
