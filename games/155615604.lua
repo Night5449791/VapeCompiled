@@ -2551,7 +2551,7 @@ run(function()
 	})
 	
 	
-	AdvancedCheck = BulletTracers:CreateToggle({
+	AdvancedCheck = KillNotifications:CreateToggle({
 		Name = 'AdvancedCheck',
 		Default = false
 	})
