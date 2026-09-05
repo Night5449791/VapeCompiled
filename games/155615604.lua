@@ -2560,17 +2560,18 @@ run(function()
 	
 	                            			local humanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
 	
-	                            		if targetRoot and humanoid and humanoid.Health > 0 then
-	                                		local distance = (
-	                                    		rootPart.Position - targetRoot.Position
-	                                		).Magnitude
+	                            			if targetRoot and humanoid and humanoid.Health > 0 then
+	                                			local distance = (
+	                                    			rootPart.Position - targetRoot.Position
+	                                			).Magnitude
 	
-	                                		if distance < 10 then
-	                                    		local hits = math.ceil(humanoid.Health / 5)
+	                                			if distance < 10 then
+	                                    			local hits = math.ceil(humanoid.Health / 5)
 	
-	                                    		for i = 1, hits do
-	                                        		meleeEvent:FireServer(player)
-	                                    		end
+	                                    			for i = 1, hits do
+	                                        			meleeEvent:FireServer(player)
+	                                    			end
+												end
 	                                		end
 										end)
 	                            	end
