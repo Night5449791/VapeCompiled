@@ -6773,8 +6773,10 @@ run(function()
 							local neutral = teams:FindFirstChild('Neutral')
 							local targetTeam = teams:FindFirstChild(teamName)
 							if requestTeamChange and neutral and targetTeam then
-								requestTeamChange:InvokeServer(neutral, 1)
-								task.wait(1)
+								if lplr.Team ~= neutral then
+									requestTeamChange:InvokeServer(neutral, 1)
+									task.wait(1)
+								end
 								requestTeamChange:InvokeServer(targetTeam, 1)
 							end
 						end
