@@ -6783,9 +6783,9 @@ run(function()
 				ChatCommand:Clean(lplr.Chatted:Connect(function(message)
 					local loweredMessage = message:lower()
 					local diedTPState = loweredMessage:match('^%.diedtp%s+(on|off)$')
-					if diedTPState then
+					if diedTPState or loweredMessage == '.diedtp' then
 						local DiedTP = vape.Modules.DiedTP
-						local enabled = diedTPState == 'on'
+						local enabled = diedTPState and diedTPState == 'on' or (DiedTP and not DiedTP.Enabled)
 						if DiedTP and DiedTP.Enabled ~= enabled then
 							DiedTP:Toggle()
 						end
