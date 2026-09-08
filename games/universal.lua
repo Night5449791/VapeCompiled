@@ -6748,10 +6748,20 @@ run(function()
 	local ServerHop
 	local ReloadVape
 	local oldCameraSubject
+	local viewDeathConnection
+	
+	local function clearViewDeathConnection()
+		if viewDeathConnection then
+			viewDeathConnection:Disconnect()
+			viewDeathConnection = nil
+		end
+	end
 	
 	local function restoreCamera()
-		if oldCameraSubject and gameCamera.CameraSubject ~= oldCameraSubject then
-			gameCamera.CameraSubject = oldCameraSubject
+		clearViewDeathConnection()
+		local cameraSubject = oldCameraSubject or (entitylib.character and entitylib.character.Humanoid)
+		if cameraSubject and gameCamera.CameraSubject ~= cameraSubject then
+			gameCamera.CameraSubject = cameraSubject
 		end
 		oldCameraSubject = nil
 	end
@@ -6823,7 +6833,7 @@ run(function()
 						return
 					end
 	
-					if loweredMessage == '.unview' and PlayerView.Enabled then
+					if loweredMessage == '.unview' then
 						restoreCamera()
 						return
 					end
@@ -6859,7 +6869,15 @@ run(function()
 					end
 	
 					if target.Humanoid then
+						clearViewDeathConnection()
 						gameCamera.CameraSubject = target.Humanoid
+						viewDeathConnection = target.Humanoid.Died:Connect(function()
+							viewDeathConnection = nil
+							local localHumanoid = entitylib.character and entitylib.character.Humanoid
+							if localHumanoid then
+								gameCamera.CameraSubject = localHumanoid
+							end
+						end)
 					end
 				end))
 			else
