@@ -6711,6 +6711,7 @@ run(function()
 	local Rejoin
 	local ServerHop
 	local ReloadVape
+	local ChangeTeam
 	local oldCameraSubject
 	local viewDeathConnection
 	
@@ -6759,6 +6760,23 @@ run(function()
 				oldCameraSubject = gameCamera.CameraSubject
 				ChatCommand:Clean(lplr.Chatted:Connect(function(message)
 					local loweredMessage = message:lower()
+					local teamCommand = loweredMessage:match('^%.team%s+([gc])$')
+					if teamCommand and ChangeTeam.Enabled then
+						local remotes = game:GetService('ReplicatedStorage'):FindFirstChild('Remotes')
+						local requestTeamChange = remotes and remotes:FindFirstChild('RequestTeamChange')
+						local teams = game:GetService('Teams')
+						local teamName = teamCommand == 'g' and 'Guards' or 'Inmates'
+						local targetTeam = teams:FindFirstChild(teamName)
+						local neutralTeam = teams:FindFirstChild('Neutral')
+						if requestTeamChange and targetTeam and neutralTeam then
+							task.wait(1.5)
+							requestTeamChange:InvokeServer(neutralTeam, 1)
+							task.wait(1)
+							requestTeamChange:InvokeServer(targetTeam, 1)
+						end
+						return
+					end
+	
 					local diedTPState = loweredMessage:match('^%.diedtp%s+(on|off)$')
 					if loweredMessage == '.diedtp' or diedTPState then
 						local DiedTP = vape.Modules.DiedTP
@@ -6854,7 +6872,7 @@ run(function()
 				restoreCamera()
 			end
 		end,
-		Tooltip = 'Chat commands: .view, .unview, .tp, .diedtp, .rj, .hop, .reload'
+		Tooltip = 'Chat commands: .view, .unview, .tp, .team, .diedtp, .rj, .hop, .reload'
 	})
 	
 	PlayerTP = ChatCommand:CreateToggle({
@@ -6885,6 +6903,11 @@ run(function()
 	ReloadVape = ChatCommand:CreateToggle({
 		Name = 'ReloadVape',
 		Default = true
+	
+	ChangeTeam = ChatCommand:CreateToggle({
+		Name = 'ChangeTeam',
+		Default = true
+	})
 	})
 	
 	DiedTP = ChatCommand:CreateToggle({
