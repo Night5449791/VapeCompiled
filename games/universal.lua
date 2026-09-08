@@ -3323,42 +3323,6 @@ run(function()
 end)
 
 run(function()
-	local Swim
-	local terrain = cloneref(workspace:FindFirstChildWhichIsA('Terrain'))
-	local lastpos = Region3.new(Vector3.zero, Vector3.zero)
-	
-	Swim = vape.Categories.Blatant:CreateModule({
-		Name = 'Swim',
-		Function = function(callback)
-			if callback then
-				Swim:Clean(runService.PreSimulation:Connect(function(dt)
-					if entitylib.isAlive then
-						local root = entitylib.character.RootPart
-						local moving = entitylib.character.Humanoid.MoveDirection ~= Vector3.zero
-						local rootvelo = root.Velocity
-						local space = inputService:IsKeyDown(Enum.KeyCode.Space)
-	
-						if terrain then
-							local factor = (moving or space) and Vector3.new(6, 6, 6) or Vector3.new(2, 1, 2)
-							local pos = root.Position - Vector3.new(0, 1, 0)
-							local newpos = Region3.new(pos - factor, pos + factor):ExpandToGrid(4)
-							terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
-							terrain:FillRegion(newpos, 4, Enum.Material.Water)
-							lastpos = newpos
-						end
-					end
-				end))
-			else
-				if terrain and lastpos then
-					terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
-				end
-			end
-		end,
-		Tooltip = 'Lets you swim midair'
-	})
-end)
-
-run(function()
 	local TargetStrafe
 	local Targets
 	local SearchRange
@@ -6930,106 +6894,6 @@ run(function()
 end)
 
 run(function()
-	local ChatSpammer
-	local Lines
-	local Mode
-	local Delay
-	local Hide
-	local RandomList = {}
-	local oldchat
-	
-	ChatSpammer = vape.Categories.Utility:CreateModule({
-		Name = 'ChatSpammer',
-		Function = function(callback)
-			if callback then
-				if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-					if Hide.Enabled and coreGui:FindFirstChild('ExperienceChat') then
-						ChatSpammer:Clean(coreGui.ExperienceChat.appLayout.chatWindow.contentFrame.scrollingView.bottomLockedScrollView.scrollView.ChildAdded:Connect(function(msg)
-							if msg.Name:sub(1, 2) == '0-' and msg.TextMessage.BodyText.Text == '<font color="#d4d4d4">You must wait before sending another message.</font>' then
-								msg.Visible = false
-							end
-						end))
-					end
-				elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
-					if Hide.Enabled then
-						oldchat = hookfunction(getconnections(replicatedStorage.DefaultChatSystemChatEvents.OnNewSystemMessage.OnClientEvent)[1].Function, function(data, ...)
-							if data.Message:find('ChatFloodDetector') then return end
-							return oldchat(data, ...)
-						end)
-					end
-				else
-					notif('ChatSpammer', 'unsupported chat', 5, 'warning')
-					ChatSpammer:Toggle()
-					return
-				end
-	
-				local index = 1
-				repeat
-					local message = 'vxpe on top'
-					if #Lines.ListEnabled > 0 then
-						if Mode.Value == 'Order' then
-							message = Lines.ListEnabled[index] or Lines.ListEnabled[1]
-							index = (index % #Lines.ListEnabled) + 1
-						else
-							if #RandomList <= 0 then
-								RandomList = table.clone(Lines.ListEnabled)
-							end
-	
-							local entry = Random.new():NextInteger(1, #RandomList)
-							message = RandomList[entry]
-							table.remove(RandomList, entry)
-						end
-					end
-	
-					if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-						textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
-					else
-						replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, 'All')
-					end
-	
-					task.wait(Delay.Value)
-				until not ChatSpammer.Enabled
-			else
-				if oldchat then
-					hookfunction(getconnections(replicatedStorage.DefaultChatSystemChatEvents.OnNewSystemMessage.OnClientEvent)[1].Function, oldchat)
-				end
-			end
-		end,
-		Tooltip = 'Automatically types in chat'
-	})
-	Lines = ChatSpammer:CreateTextList({
-		Name = 'Lines',
-		Function = function()
-			table.clear(RandomList)
-		end
-	})
-	Mode = ChatSpammer:CreateDropdown({
-		Name = 'Mode',
-		List = {'Random', 'Order'}
-	})
-	Delay = ChatSpammer:CreateSlider({
-		Name = 'Delay',
-		Min = 0.1,
-		Max = 10,
-		Default = 1,
-		Decimal = 10,
-		Suffix = function(val)
-			return val == 1 and 'second' or 'seconds'
-		end
-	})
-	Hide = ChatSpammer:CreateToggle({
-		Name = 'Hide Flood Message',
-		Default = true,
-		Function = function()
-			if ChatSpammer.Enabled then
-				ChatSpammer:Toggle()
-				ChatSpammer:Toggle()
-			end
-		end
-	})
-end)
-
-run(function()
 	local Rejoin
 	
 	Rejoin = vape.Categories.Utility:CreateModule({
@@ -7224,43 +7088,6 @@ run(function()
 	Role = StaffDetector:CreateTextBox({
 		Name = 'Role',
 		Placeholder = 'Role Rank'
-	})
-end)
-
-run(function()
-	local StateSpoofer
-	local State
-	local hook
-	
-	StateSpoofer = vape.Categories.Utility:CreateModule({
-		Name = 'StateSpoofer',
-		Function = function(callback)
-			if callback then
-				hook = function(packet)
-					if packet.AsArray[1] == 0x1b then
-						local data = packet.AsBuffer
-						buffer.writeu8(data, 25, Enum.HumanoidStateType[State.Value].Value + 32)
-						packet:SetData(data)
-					end
-				end
-	
-				raknet.add_send_hook(hook)
-			elseif hook then
-				raknet.remove_send_hook(hook)
-				hook = nil
-			end
-		end,
-		Tooltip = 'Spoof humanoid states on the server.'
-	})
-	local states = {}
-	for _, v in Enum.HumanoidStateType:GetEnumItems() do
-		if v.Name ~= 'None' then
-			table.insert(states, v.Name)
-		end
-	end
-	State = StateSpoofer:CreateDropdown({
-		Name = 'Humanoid State',
-		List = states
 	})
 end)
 
