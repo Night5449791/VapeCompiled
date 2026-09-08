@@ -1608,6 +1608,7 @@ run(function()
 	local savedX, savedZ
 	local frameCount, shakeTime = 0, 0
 	local waitingForDeath, flinging = false, false
+	local commandTarget
 	
 	local function teamNames()
 		return {'Guards', 'Inmates', 'Criminals'}
@@ -1623,7 +1624,7 @@ run(function()
 	end
 	
 	local function selectedTarget()
-		return getTargetPlayer(Target.Value)
+		return commandTarget or getTargetPlayer(Target.Value)
 	end
 	
 	local function refreshTargets()
@@ -1743,6 +1744,7 @@ run(function()
 		carModel, rootPart = nil, nil
 		partOffsets = {}
 		savedX, savedZ = nil, nil
+		commandTarget = nil
 	end
 	
 	local function startFling(targetPlayer)
@@ -1856,6 +1858,17 @@ run(function()
 		end,
 		Tooltip = 'Flicker and fling a vehicle after you die.'
 	})
+	
+	function CarFling:StartForPlayer(targetPlayer)
+		if CarFling.Enabled then
+			CarFling:Toggle()
+		end
+		commandTarget = targetPlayer
+		Mode.Value = 'New'
+		FlickerSpeed.Value = 4
+		FlingPower.Value = 750
+		CarFling:Toggle()
+	end
 	
 	Mode = CarFling:CreateDropdown({
 		Name = 'Mode',
