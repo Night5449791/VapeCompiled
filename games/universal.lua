@@ -6831,7 +6831,7 @@ run(function()
 						return
 					end
 	
-					if not command or command:lower() ~= 'view' or not PlayerView.Enabled then
+					if not command or command:lower() ~= 'view' or not cPlayerView.Enabled then
 						return
 					end
 	
