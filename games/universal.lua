@@ -7192,7 +7192,7 @@ run(function()
 		Name = 'RunCMD',
 		Function = function(callback)
 			if callback then
-				loadstring(luaucode.Value)()
+				loadstring(tostring(luaucode.Value))()
 			end
 		end,
 		Tooltip = 'runs luau directly in vape'
