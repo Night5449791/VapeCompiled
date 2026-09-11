@@ -236,11 +236,6 @@ end
 local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
 local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
 entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
-local cheaters = loadstring(downloadFile('newvape/libraries/cheaters.lua'), 'cheaters')()
-if type(cheaters) ~= 'table' then
-	cheaters = {}
-end
-
 local whitelist = {
 	alreadychecked = {},
 	customtags = {},
@@ -260,7 +255,6 @@ vape.Libraries.entity = entitylib
 vape.Libraries.whitelist = whitelist
 vape.Libraries.prediction = prediction
 vape.Libraries.hash = hash
-vape.Libraries.cheaters = cheaters
 vape.Libraries.auraanims = {
 	Normal = {
 		{CFrame = CFrame.new(-0.17, -0.14, -0.12) * CFrame.Angles(math.rad(-53), math.rad(50), math.rad(-64)), Time = 0.1},
@@ -6754,7 +6748,7 @@ run(function()
 	local cWhitelist
 	local oldCameraSubject
 	local viewDeathConnection
-	local localCheaterFile = 'newvape/games/cheater.json'
+	local localCheaterFile = 'newvape/cheater.json'
 	
 	local function trim(value)
 		return value:match('^%s*(.-)%s*$')
@@ -6834,6 +6828,31 @@ run(function()
 		end)
 	end
 	
+	local function removeLocalCheater(username)
+		if not isfile(localCheaterFile) then
+			return false
+		end
+	
+		local success, usernames = pcall(function()
+			return httpService:JSONDecode(readfile(localCheaterFile))
+		end)
+		if not success or type(usernames) ~= 'table' or usernames[username] == nil then
+			return false
+		end
+	
+		usernames[username] = nil
+		return pcall(function()
+			writefile(localCheaterFile, httpService:JSONEncode(usernames))
+		end)
+	end
+	
+	local function clearSkid(player)
+		local username = player.Name
+		vape.Libraries.cheaters[username] = nil
+		whitelist.customtags[username] = nil
+		tempTargets[username] = nil
+	end
+	
 	local function addSkid(target, reason)
 		local player = getPlayer(target)
 		local cheaters = vape.Libraries.cheaters
@@ -6850,7 +6869,24 @@ run(function()
 		cheaters[player.Name] = reason
 		whitelist.customtags[player.Name] = {{text = 'Exploiter', color = Color3.new(1, 0, 0)}}
 		tempTargets[player.Name] = true
-		notif('ChatCommand', 'Added '..player.DisplayName..' to cheater list.', 5)
+		notif('ChatCommand', 'Added '..player.DisplayName..' to cheater list.', 5, 'alert')
+		return true
+	end
+	
+	local function removeSkid(target)
+		local player = getPlayer(target)
+		local cheaters = vape.Libraries.cheaters
+		if not player or type(cheaters) ~= 'table' then
+			return false
+		end
+	
+		if not removeLocalCheater(player.Name) then
+			notif('ChatCommand', player.DisplayName..' is not in the local cheater list.', 5, 'warning')
+			return false
+		end
+	
+		clearSkid(player)
+		notif('ChatCommand', 'Removed '..player.DisplayName..' from local cheater list.', 5)
 		return true
 	end
 	
@@ -6953,6 +6989,16 @@ run(function()
 							addSkid(target, reason)
 						else
 							notif('ChatCommand', 'Usage: .addskid <displayname> <reason>', 5, 'warning')
+						end
+						return
+					end
+	
+					if loweredCommand == 'rmskid' or loweredCommand == 'delskid' then
+						local target = findPlayer(trim(prefix))
+						if target then
+							removeSkid(target)
+						else
+							notif('ChatCommand', 'Usage: .'..loweredCommand..' <displayname>', 5, 'warning')
 						end
 						return
 					end
