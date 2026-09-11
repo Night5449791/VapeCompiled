@@ -2856,8 +2856,8 @@ run(function()
 		Function = function(callback)
 			if callback then
 				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					local obj = plr.DisplayName
-					if obj == lplr.DisplayName then
+					local tobj = tostring(obj)
+					if tobj == lplr.DisplayName then
 						sendMessage('Kicked', plr, '.selfkick')
 					else
 						sendMessage('Kicked', plr, 'kicked <obj>| skill issue')
