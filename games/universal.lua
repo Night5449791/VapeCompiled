@@ -236,6 +236,11 @@ end
 local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
 local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
 entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
+local cheaters = loadstring(downloadFile('newvape/libraries/cheaters.lua'), 'cheaters')()
+if type(cheaters) ~= 'table' then
+	cheaters = {}
+end
+
 local whitelist = {
 	alreadychecked = {},
 	customtags = {},
@@ -255,6 +260,7 @@ vape.Libraries.entity = entitylib
 vape.Libraries.whitelist = whitelist
 vape.Libraries.prediction = prediction
 vape.Libraries.hash = hash
+vape.Libraries.cheaters = cheaters
 vape.Libraries.auraanims = {
 	Normal = {
 		{CFrame = CFrame.new(-0.17, -0.14, -0.12) * CFrame.Angles(math.rad(-53), math.rad(50), math.rad(-64)), Time = 0.1},
@@ -6748,6 +6754,11 @@ run(function()
 	local cWhitelist
 	local oldCameraSubject
 	local viewDeathConnection
+	local localCheaterFile = 'newvape/games/cheater.json'
+	
+	local function trim(value)
+		return value:match('^%s*(.-)%s*$')
+	end
 	
 	local function clearViewDeathConnection()
 		if viewDeathConnection then
@@ -6787,6 +6798,62 @@ run(function()
 		return nil
 	end
 	
+	local function getPlayer(entity)
+		return entity and (entity.Player or entity)
+	end
+	
+	local function parseAddSkidCommand(body)
+		for split = #body, 1, -1 do
+			if body:sub(split, split):match('%s') then
+				local displayName = trim(body:sub(1, split - 1))
+				local reason = trim(body:sub(split + 1))
+				local target = reason ~= '' and findPlayer(displayName)
+				if target then
+					return target, reason
+				end
+			end
+		end
+	
+		return nil
+	end
+	
+	local function saveLocalCheater(username, reason)
+		local usernames = {}
+		if isfile(localCheaterFile) then
+			local success, data = pcall(function()
+				return httpService:JSONDecode(readfile(localCheaterFile))
+			end)
+			if success and type(data) == 'table' then
+				usernames = data
+			end
+		end
+	
+		usernames[username] = reason
+		return pcall(function()
+			writefile(localCheaterFile, httpService:JSONEncode(usernames))
+		end)
+	end
+	
+	local function addSkid(target, reason)
+		local player = getPlayer(target)
+		local cheaters = vape.Libraries.cheaters
+		if not player or type(cheaters) ~= 'table' then
+			return false
+		end
+	
+		local saved = saveLocalCheater(player.Name, reason)
+		if not saved then
+			notif('ChatCommand', 'Could not save cheater list.', 5, 'warning')
+			return false
+		end
+	
+		cheaters[player.Name] = reason
+		whitelist.customtags[player.Name] = {{text = 'Exploiter', color = Color3.new(1, 0, 0)}}
+		tempTargets[player.Name] = true
+		notif('ChatCommand', 'Added '..player.DisplayName..' to cheater list.', 5)
+		return true
+	end
+	
 	local whitelistCommands = {
 		 wl = true,
 		 whitelist = true,
@@ -6797,7 +6864,7 @@ run(function()
 	local function handleWhitelistCommand(command, prefix)
 		local isUnwhitelist = command == 'unwl' or command == 'unwhitelist'
 		local target = findPlayer(prefix)
-		local player = target and target.Player
+		local player = getPlayer(target)
 		if not player and isUnwhitelist then
 			player = playersService:FindFirstChild(prefix)
 		end
@@ -6878,10 +6945,20 @@ run(function()
 						return
 					end
 	
-					local command, prefix = message:match('^%.(%S+)%s+(.+)$')
+					local command, prefix = message:match('^%.(%S+)%s*(.*)$')
 					local loweredCommand = command and command:lower()
+					if loweredCommand == 'addskid' then
+						local target, reason = parseAddSkidCommand(prefix)
+						if target then
+							addSkid(target, reason)
+						else
+							notif('ChatCommand', 'Usage: .addskid <displayname> <reason>', 5, 'warning')
+						end
+						return
+					end
+	
 					if loweredCommand and whitelistCommands[loweredCommand] and cWhitelist.Enabled then
-						handleWhitelistCommand(loweredCommand, prefix:match('^%s*(.-)%s*$'))
+						handleWhitelistCommand(loweredCommand, trim(prefix))
 						return
 					end
 	
@@ -6891,7 +6968,7 @@ run(function()
 					end
 	
 					if loweredCommand == 'tp' and cPlayerTP.Enabled then
-						prefix = prefix:match('^%s*(.-)%s*$')
+						prefix = trim(prefix)
 						local target = findPlayer(prefix)
 						if not target or not target.RootPart then
 							notif('ChatCommand', 'No living player found.', 5, 'warning')
@@ -6912,7 +6989,7 @@ run(function()
 						return
 					end
 	
-					prefix = prefix:match('^%s*(.-)%s*$')
+					prefix = trim(prefix)
 					local target = findPlayer(prefix)
 					if not target then
 						notif('ChatCommand', 'No living player found.', 5, 'warning')
