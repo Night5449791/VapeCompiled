@@ -6746,8 +6746,15 @@ run(function()
 	local cReloadVape
 	local cChangeTeam
 	local cWhitelist
+	local cAddSkid
 	local oldCameraSubject
 	local viewDeathConnection
+	
+	local skidCommands = {
+		addskid = true,
+		rmskid = true,
+		delskid = true
+	}
 	
 	local function trim(value)
 		return (value or ''):match('^%s*(.-)%s*$')
@@ -6828,6 +6835,39 @@ run(function()
 		notif('Whitelist', player.DisplayName..' has been whitelisted.', 5)
 	end
 	
+	local function handleSkidCommand(command, args)
+		local cheaters = vape.Libraries.cheaters
+		if not cheaters or not vape.Libraries.addCheater then
+			notif('CheaterDetector', 'CheaterDetector is unavailable.', 5, 'warning')
+			return
+		end
+	
+		args = trim(args)
+		if command == 'addskid' then
+			local username, reason = args:match('^(%S+)%s*(.-)$')
+			if not username or username == '' then
+				notif('CheaterDetector', 'Usage: .addskid <username> [reason]', 5, 'warning')
+				return
+			end
+	
+			vape.Libraries.addCheater(username, reason ~= '' and reason or 'manual')
+			notif('CheaterDetector', username..' added to the cheater list.', 5)
+		elseif command == 'rmskid' then
+			if vape.Libraries.removeCheater(args) then
+				notif('CheaterDetector', args..' removed from the cheater list.', 5)
+			else
+				notif('CheaterDetector', 'No cheater found for '..(args ~= '' and args or 'the provided username')..'.', 5, 'warning')
+			end
+		elseif args == '' then
+			vape.Libraries.clearCheaters()
+			notif('CheaterDetector', 'Cheater list cleared.', 5)
+		elseif vape.Libraries.removeCheater(args) then
+			notif('CheaterDetector', args..' removed from the cheater list.', 5)
+		else
+			notif('CheaterDetector', 'No cheater found for '..args..'.', 5, 'warning')
+		end
+	end
+	
 	ChatCommand = vape.Categories.Utility:CreateModule({
 		Name = 'ChatCommand',
 		Function = function(callback)
@@ -6883,6 +6923,11 @@ run(function()
 						else
 							teleportService:Teleport(game.PlaceId)
 						end
+						return
+					end
+	
+					if loweredCommand and skidCommands[loweredCommand] and cAddSkid.Enabled then
+						handleSkidCommand(loweredCommand, prefix)
 						return
 					end
 	
@@ -6985,6 +7030,11 @@ run(function()
 	
 	cWhitelist = ChatCommand:CreateToggle({
 		Name = 'Whitelist',
+		Default = true
+	})
+	
+	cAddSkid = ChatCommand:CreateToggle({
+		Name = 'AddSkid',
 		Default = true
 	})
 end)
