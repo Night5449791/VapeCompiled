@@ -2852,20 +2852,16 @@ run(function()
 	end
 	
 	AutoToxic = vape.Categories.Utility:CreateModule({
-		Name = 'AutoToxic',
-		Function = function(callback)
-			if callback then
-				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-					local tobj = tostring(obj)
-					if tobj == lplr.DisplayName then
-						sendMessage('Kicked', plr, '.selfkick')
-					else
-						sendMessage('Kicked', plr, 'kicked <obj>| skill issue')
-					end
-				end))
-			end
-		end,
-		Tooltip = 'Says a message after a cheater gets kicked with CheatDetector enabled.'
+	    Name = 'AutoToxic',
+	    Function = function(callback)
+	        if callback then
+	            AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
+	                    sendMessage('Kicked', plr, 'kicked <obj>| skill issue')
+	                end
+	            end))
+	        end
+	    end,
+	    Tooltip = 'Says a message after a cheater gets kicked with CheatDetector enabled.'
 	})
 	for _, v in {'Kicked'} do
 		Cloned[v] = {}
