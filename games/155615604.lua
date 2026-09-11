@@ -3080,11 +3080,13 @@ run(function()
 	
 	loadLocalCheaters()
 	
-	local function playerAdded(plr)
+	local function playerAdded(plr, notifyPlayer)
 		local username = plr and plr.Name
 		local reason = username and cheaters[username]
 		if username and type(reason) == 'string' and reason ~= '' then
-			notif('CheaterDetector', 'Cheater Detected ('..reason..'): '..plr.Name, 60, 'alert')
+			if notifyPlayer ~= false then
+				notif('CheaterDetector', 'Cheater Detected ('..reason..'): '..plr.Name, 60, 'alert')
+			end
 			whitelist.customtags[username] = {{text = 'Exploiter', color = Color3.new(1, 0, 0)}}
 			tempTargets[username] = true
 		end
@@ -3093,7 +3095,7 @@ run(function()
 	local function addCheater(username, reason)
 		cheaters[username] = reason
 		saveLocalCheaters()
-		playerAdded(playersService:FindFirstChild(username))
+		playerAdded(playersService:FindFirstChild(username), false)
 	end
 	
 	local function clearCheaters()
