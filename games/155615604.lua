@@ -3014,6 +3014,7 @@ run(function()
 	local CheaterDetector
 	local cheaters = {}
 	local cheaterFile = 'newvape/cheater.json'
+	local httpService = cloneref(game:GetService('HttpService'))
 	
 	vape.Libraries.cheaters = cheaters
 	
