@@ -3019,16 +3019,22 @@ run(function()
 	vape.Libraries.cheaters = cheaters
 	
 	local function loadLocalCheaters()
+		table.clear(cheaters)
 		if not isfile(cheaterFile) then
 			pcall(writefile, cheaterFile, '{}')
-			return
+			return false
 		end
 	
-		local success, localCheaters = pcall(function()
-			return httpService:JSONDecode(readfile(cheaterFile))
+		local readSuccess, contents = pcall(readfile, cheaterFile)
+		if not readSuccess or type(contents) ~= 'string' or contents == '' then
+			return false
+		end
+	
+		local decodeSuccess, localCheaters = pcall(function()
+			return httpService:JSONDecode(contents)
 		end)
-		if not success or type(localCheaters) ~= 'table' then
-			return
+		if not decodeSuccess or type(localCheaters) ~= 'table' then
+			return false
 		end
 	
 		for username, reason in localCheaters do
@@ -3036,6 +3042,7 @@ run(function()
 				cheaters[username] = reason
 			end
 		end
+		return true
 	end
 	
 	local function saveLocalCheaters()
@@ -3117,6 +3124,7 @@ run(function()
 		Default = true,
 		Function = function(callback)
 			if callback then
+				loadLocalCheaters()
 				CheaterDetector:Clean(playersService.PlayerAdded:Connect(playerAdded))
 				for _, v in playersService:GetPlayers() do
 					task.spawn(playerAdded, v)
