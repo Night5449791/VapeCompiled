@@ -6746,19 +6746,8 @@ run(function()
 	local cReloadVape
 	local cChangeTeam
 	local cWhitelist
-	local cAddSkid
 	local oldCameraSubject
 	local viewDeathConnection
-	
-	local skidCommands = {
-		addskid = true,
-		rmskid = true,
-		delskid = true
-	}
-	
-	local function trim(value)
-		return (value or ''):match('^%s*(.-)%s*$')
-	end
 	
 	local function clearViewDeathConnection()
 		if viewDeathConnection then
@@ -6788,10 +6777,8 @@ run(function()
 		for _, entity in entitylib.List do
 			if entity and entity.Humanoid and entity.Humanoid.Health > 0 then
 				local player = entity.Player or entity
-				local username = player and player.Name
 				local displayName = player and player.DisplayName
-				if username and username:lower():sub(1, #lowered) == lowered
-					or displayName and displayName:lower():sub(1, #lowered) == lowered then
+				if displayName and displayName:lower():sub(1, #lowered) == lowered then
 					return entity
 				end
 			end
@@ -6810,7 +6797,7 @@ run(function()
 	local function handleWhitelistCommand(command, prefix)
 		local isUnwhitelist = command == 'unwl' or command == 'unwhitelist'
 		local target = findPlayer(prefix)
-		local player = getPlayer(target)
+		local player = target and target.Player
 		if not player and isUnwhitelist then
 			player = playersService:FindFirstChild(prefix)
 		end
@@ -6841,9 +6828,7 @@ run(function()
 			if callback then
 				oldCameraSubject = gameCamera.CameraSubject
 				ChatCommand:Clean(lplr.Chatted:Connect(function(message)
-					local loweredMessage = message:lower():match('^%s*(.-)%s*$')
-					local command, prefix = message:match('^%.(%S+)%s*(.*)$')
-					local loweredCommand = command and command:lower()
+					local loweredMessage = message:lower()
 	
 					local teamCommand = loweredMessage:match('^%.team%s+(%S+)$')
 					if cChangeTeam.Enabled and teamCommand then
@@ -6893,13 +6878,10 @@ run(function()
 						return
 					end
 	
-					if loweredCommand and skidCommands[loweredCommand] and cAddSkid.Enabled then
-						handleSkidCommand(loweredCommand, prefix)
-						return
-					end
-	
+					local command, prefix = message:match('^%.(%S+)%s+(.+)$')
+					local loweredCommand = command and command:lower()
 					if loweredCommand and whitelistCommands[loweredCommand] and cWhitelist.Enabled then
-						handleWhitelistCommand(loweredCommand, trim(prefix))
+						handleWhitelistCommand(loweredCommand, prefix:match('^%s*(.-)%s*$'))
 						return
 					end
 	
@@ -6909,7 +6891,7 @@ run(function()
 					end
 	
 					if loweredCommand == 'tp' and cPlayerTP.Enabled then
-						prefix = trim(prefix)
+						prefix = prefix:match('^%s*(.-)%s*$')
 						local target = findPlayer(prefix)
 						if not target or not target.RootPart then
 							notif('ChatCommand', 'No living player found.', 5, 'warning')
@@ -6930,7 +6912,7 @@ run(function()
 						return
 					end
 	
-					prefix = trim(prefix)
+					prefix = prefix:match('^%s*(.-)%s*$')
 					local target = findPlayer(prefix)
 					if not target then
 						notif('ChatCommand', 'No living player found.', 5, 'warning')
@@ -6997,11 +6979,6 @@ run(function()
 	
 	cWhitelist = ChatCommand:CreateToggle({
 		Name = 'Whitelist',
-		Default = true
-	})
-	
-	cAddSkid = ChatCommand:CreateToggle({
-		Name = 'AddSkid',
 		Default = true
 	})
 end)
