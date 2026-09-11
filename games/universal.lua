@@ -6994,11 +6994,6 @@ run(function()
 		Name = 'Whitelist',
 		Default = true
 	})
-	
-	cAddSkid = ChatCommand:CreateToggle({
-		Name = 'AddSkid',
-		Default = true
-	})
 end)
 
 run(function()
