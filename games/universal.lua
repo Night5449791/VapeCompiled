@@ -6749,6 +6749,8 @@ run(function()
 	local cTarget
 	local oldCameraSubject
 	local viewDeathConnection
+	local replicatedStorage = game:GetService('ReplicatedStorage')
+	local teamsService = game:GetService('Teams')
 	
 	local function clearViewDeathConnection()
 		if viewDeathConnection then
@@ -6795,62 +6797,6 @@ run(function()
 		 unwhitelist = true
 	}
 	
-	local function handleWhitelistCommand(command, prefix)
-		local isUnwhitelist = command == 'unwl' or command == 'unwhitelist'
-		local target = findPlayer(prefix)
-		local player = target and target.Player
-		if not player and isUnwhitelist then
-			player = playersService:FindFirstChild(prefix)
-		end
-		if not player then
-			notif('Whitelist', 'No living player found.', 5, 'warning')
-			return
-		end
-	
-		local friends = vape.Categories.Friends
-		local isWhitelisted = table.find(friends.ListEnabled, player.Name) ~= nil
-		if isUnwhitelist then
-			if isWhitelisted then
-				friends:ChangeValue(player.Name)
-			end
-			notif('Whitelist', player.DisplayName..' has been unwhitelisted.', 5)
-			return
-		end
-	
-		if not isWhitelisted then
-			friends:ChangeValue(player.Name)
-		end
-		notif('Whitelist', player.DisplayName..' has been whitelisted.', 5)
-	end
-	
-	local function handleTargetCommand(command, prefix)
-		local isBlacklist = command == 'blacklist'
-		local target = findPlayer(prefix)
-		local player = target and target.Player
-		if not player and isBlacklist then
-			player = playersService:FindFirstChild(prefix)
-		end
-		if not player then
-			notif('Target', 'No living player found.', 5, 'warning')
-			return
-		end
-	
-		local targets = vape.Categories.Targets
-		local isTargeted = table.find(targets.ListEnabled, player.Name) ~= nil
-		if isBlacklist then
-			if isTargeted then
-				targets:ChangeValue(player.Name)
-			end
-			notif('Target', player.DisplayName..' has been blacklisted.', 5)
-			return
-		end
-	
-		if not isTargeted then
-			targets:ChangeValue(player.Name)
-		end
-		notif('Target', player.DisplayName..' has been targeted.', 5)
-	end
-	
 	local targetCommands = {
 		target = true,
 		blacklist = true
@@ -6862,8 +6808,13 @@ run(function()
 			if callback then
 				oldCameraSubject = gameCamera.CameraSubject
 				ChatCommand:Clean(lplr.Chatted:Connect(function(message)
-					local loweredMessage = message:lower()
+					if message:sub(1, 1) ~= '.' then
+						return
+					end
 	
+					local loweredMessage = message:lower()
+					local command, prefix = message:match('^%.(%S+)%s+(.+)$')
+					local loweredCommand = command and command:lower()
 					local teamCommand = loweredMessage:match('^%.team%s+(%S+)$')
 					if cChangeTeam.Enabled and teamCommand then
 						local teamName = teamCommand == 'g' and 'Guards'
@@ -6871,11 +6822,10 @@ run(function()
 							or teamCommand == 'guards' and 'Guards'
 							or teamCommand == 'inmates' and 'Inmates'
 						if teamName then
-							local remotes = game:GetService('ReplicatedStorage'):FindFirstChild('Remotes')
+							local remotes = replicatedStorage:FindFirstChild('Remotes')
 							local requestTeamChange = remotes and remotes:FindFirstChild('RequestTeamChange')
-							local teams = game:GetService('Teams')
-							local neutral = teams:FindFirstChild('Neutral')
-							local targetTeam = teams:FindFirstChild(teamName)
+							local neutral = teamsService:FindFirstChild('Neutral')
+							local targetTeam = teamsService:FindFirstChild(teamName)
 							if requestTeamChange and neutral and targetTeam then
 								if lplr.Team ~= neutral then
 									requestTeamChange:InvokeServer(neutral, 1)
@@ -6884,24 +6834,15 @@ run(function()
 								requestTeamChange:InvokeServer(targetTeam, 1)
 							end
 						end
-						return
-					end
-	
-					if loweredMessage == '.reload' and cReloadVape.Enabled then
+					elseif loweredMessage == '.reload' and cReloadVape.Enabled then
 						delfile('newvape/main.lua')
 						delfolder('newvape/libraries')
 						delfolder('newvape/games')
 						loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeV4ForRoblox/main/NewMainScript.lua', true))()
-						return
-					end
-	
-					if (loweredMessage == '.serverhop' or loweredMessage == '.hop') and cServerHop.Enabled then
+					elseif (loweredMessage == '.serverhop' or loweredMessage == '.hop') and cServerHop.Enabled then
 						notif('ServerHop', 'Searching for a new server...', 5)
 						serverHop(nil, 'Descending')
-						return
-					end
-	
-					if (loweredMessage == '.rj' or loweredMessage == '.rejoin') and cRejoin.Enabled then
+					elseif (loweredMessage == '.rj' or loweredMessage == '.rejoin') and cRejoin.Enabled then
 						notif('Rejoin', 'Rejoining...', 5)
 	
 						if playersService.NumPlayers > 1 then
@@ -6909,27 +6850,61 @@ run(function()
 						else
 							teleportService:Teleport(game.PlaceId)
 						end
-						return
-					end
+					elseif loweredCommand and whitelistCommands[loweredCommand] and cWhitelist.Enabled then
+						local isUnwhitelist = loweredCommand == 'unwl' or loweredCommand == 'unwhitelist'
+						local target = findPlayer(prefix:match('^%s*(.-)%s*$'))
+						local player = target and target.Player
+						if not player and isUnwhitelist then
+							player = playersService:FindFirstChild(prefix)
+						end
+						if not player then
+							notif('Whitelist', 'No living player found.', 5, 'warning')
+							return
+						end
 	
-					local command, prefix = message:match('^%.(%S+)%s+(.+)$')
-					local loweredCommand = command and command:lower()
-					if loweredCommand and whitelistCommands[loweredCommand] and cWhitelist.Enabled then
-						handleWhitelistCommand(loweredCommand, prefix:match('^%s*(.-)%s*$'))
-						return
-					end
+						local friends = vape.Categories.Friends
+						local isWhitelisted = table.find(friends.ListEnabled, player.Name) ~= nil
+						if isUnwhitelist then
+							if isWhitelisted then
+								friends:ChangeValue(player.Name)
+							end
+							notif('Whitelist', player.DisplayName..' has been unwhitelisted.', 5)
+							return
+						end
 	
-					if loweredCommand and targetCommands[loweredCommand] and cTarget.Enabled then
-						handleTargetCommand(loweredCommand, prefix:match('^%s*(.-)%s*$'))
-						return
-					end
+						if not isWhitelisted then
+							friends:ChangeValue(player.Name)
+						end
+						notif('Whitelist', player.DisplayName..' has been whitelisted.', 5)
+					elseif loweredCommand and targetCommands[loweredCommand] and cTarget.Enabled then
+						local isBlacklist = loweredCommand == 'blacklist'
+						local target = findPlayer(prefix:match('^%s*(.-)%s*$'))
+						local player = target and target.Player
+						if not player and isBlacklist then
+							player = playersService:FindFirstChild(prefix)
+						end
+						if not player then
+							notif('Target', 'No living player found.', 5, 'warning')
+							return
+						end
 	
-					if loweredMessage == '.unview' then
+						local targets = vape.Categories.Targets
+						local isTargeted = table.find(targets.ListEnabled, player.Name) ~= nil
+						if isBlacklist then
+							if isTargeted then
+								targets:ChangeValue(player.Name)
+							end
+							notif('Target', player.DisplayName..' has been blacklisted.', 5)
+							return
+						end
+	
+						if not isTargeted then
+							targets:ChangeValue(player.Name)
+						end
+						notif('Target', player.DisplayName..' has been targeted.', 5)
+					elseif loweredMessage == '.unview' then
 						restoreCamera()
-						return
-					end
-	
-					if loweredCommand == 'tp' and cPlayerTP.Enabled then
+					elseif loweredCommand == 'tp' and cPlayerTP.Enabled then
 						prefix = prefix:match('^%s*(.-)%s*$')
 						local target = findPlayer(prefix)
 						if not target or not target.RootPart then
@@ -6940,37 +6915,29 @@ run(function()
 						if entitylib.character and entitylib.character.RootPart then
 							entitylib.character.RootPart.CFrame = target.RootPart.CFrame + Vector3.new(0, 2, 0)
 						end
-						return
-					end
+					elseif loweredCommand == 'view' and cPlayerView.Enabled and prefix then
+						prefix = prefix:match('^%s*(.-)%s*$')
+						local target = findPlayer(prefix)
+						if not target then
+							notif('ChatCommand', 'No living player found.', 5, 'warning')
+							return
+						end
 	
-					if loweredCommand ~= 'view' or not cPlayerView.Enabled then
-						return
-					end
-	
-					if not prefix then
-						return
-					end
-	
-					prefix = prefix:match('^%s*(.-)%s*$')
-					local target = findPlayer(prefix)
-					if not target then
-						notif('ChatCommand', 'No living player found.', 5, 'warning')
-						return
-					end
-	
-					if target.Humanoid then
-						clearViewDeathConnection()
-						gameCamera.CameraSubject = target.Humanoid
-						viewDeathConnection = target.Humanoid.Died:Connect(function()
-							viewDeathConnection = nil
-							local character = lplr.Character
-							local localHumanoid = character and character:FindFirstChildOfClass('Humanoid')
-								or (entitylib.character and entitylib.character.Humanoid)
-							if localHumanoid then
-								gameCamera.CameraSubject = localHumanoid
-								gameCamera.CameraType = Enum.CameraType.Custom
-							end
-						end)
+						if target.Humanoid then
+							clearViewDeathConnection()
+							gameCamera.CameraSubject = target.Humanoid
+							viewDeathConnection = target.Humanoid.Died:Connect(function()
+								viewDeathConnection = nil
+								local character = lplr.Character
+								local localHumanoid = character and character:FindFirstChildOfClass('Humanoid')
+									or (entitylib.character and entitylib.character.Humanoid)
+								if localHumanoid then
+									gameCamera.CameraSubject = localHumanoid
+									gameCamera.CameraType = Enum.CameraType.Custom
+								end
+							end)
+							vape:Clean(viewDeathConnection)
+						end
 					end
 				end))
 			else
