@@ -1118,154 +1118,6 @@ run(function()
 end)
 
 run(function()
-	local AntiCarFling
-	local CarContainer
-	local CarContainerParent
-	AntiCarFling = vape.Categories.Blatant:CreateModule({
-		Name = 'AntiCarFling',
-		Function = function(callback)
-			if callback then
-				CarContainer = workspace:FindFirstChild('CarContainer')
-				if CarContainer then
-					CarContainerParent = CarContainer.Parent
-					CarContainer.Parent = nil
-				end
-				notif('AntiCarFling', 'hided cars.', 5, 'alert')
-			elseif CarContainer then
-				CarContainer.Parent = CarContainerParent
-				CarContainer = nil
-				CarContainerParent = nil
-			end
-		end,
-		Tooltip = 'just prevents u getting fucked by cars'
-	})
-end)
-
-run(function()
-	local AntiFling
-	local modified = {}
-	
-	local function Modify(part)
-		if part:IsA('BasePart') and part.CollisionGroup == 'Vehicles' then
-			if not modified[part] then
-				modified[part] = part.CanCollide
-			end
-	
-			part.CanCollide = false
-		end
-	end
-	
-	AntiFling = vape.Categories.Blatant:CreateModule({
-		Name = 'AntiFling',
-		Function = function(callback)
-			if callback then
-				AntiFling:Clean(workspace.CarContainer.DescendantAdded:Connect(Modify))
-				for _, part in workspace.CarContainer:QueryDescendants('BasePart') do
-					Modify(part)
-				end
-			else
-				for part, value in modified do
-					part.CanCollide = value
-				end
-				table.clear(modified)
-			end
-		end,
-		Tooltip = 'Prevent certain methods of flinging you'
-	})
-end)
-
-run(function()
-	local AntiHeadFling
-	local Threshold
-	local triggered = false
-	
-	local allowedParts = {
-		Head = true,
-		HumanoidRootPart = true,
-		['Left Arm'] = true,
-		['Right Arm'] = true,
-		['Left Leg'] = true,
-		['Right Leg'] = true,
-		Torso = true
-	}
-	
-	local function trigger(part, speed)
-		if triggered then
-			return
-		end
-	
-		triggered = true
-		local placeId = game.PlaceId
-		local jobId = game.JobId
-		local alone = #playersService:GetPlayers() <= 1
-	
-		AntiHeadFling:Toggle()
-		lplr:Kick(string.format('Kill fling: %s at %.1f studs/s. rejoining...', part.Name, speed))
-	
-		task.spawn(function()
-			local ok, err = pcall(function()
-				local teleportService = game:GetService('TeleportService')
-				if alone or jobId == '' then
-					teleportService:Teleport(placeId, lplr)
-				else
-					teleportService:TeleportToPlaceInstance(placeId, jobId, lplr)
-				end
-			end)
-	
-			if not ok then
-				warn('Rejoin failed: ' .. tostring(err))
-			end
-		end)
-	end
-	
-	local function check()
-		if triggered then
-			return
-		end
-	
-		local character = lplr.Character
-		local humanoid = character and character:FindFirstChildOfClass('Humanoid')
-		if not humanoid or (humanoid.Health > 0 and humanoid:GetState() ~= Enum.HumanoidStateType.Dead) then
-			return
-		end
-	
-		for _, part in character:GetChildren() do
-			if part:IsA('BasePart') and allowedParts[part.Name] then
-				local speed = part:GetVelocityAtPosition(part.Position).Magnitude
-				if speed > Threshold.Value then
-					trigger(part, speed)
-					return
-				end
-			end
-		end
-	end
-	
-	AntiHeadFling = vape.Categories.Blatant:CreateModule({
-		Name = 'AntiHeadFling',
-		Function = function(callback)
-			if callback then
-				triggered = false
-				AntiHeadFling:Clean(runService.PreSimulation:Connect(check))
-				AntiHeadFling:Clean(runService.PostSimulation:Connect(check))
-			else
-				triggered = false
-			end
-		end,
-		Tooltip = 'Rejoin when your character is flung after dying.'
-	})
-	
-	Threshold = AntiHeadFling:CreateSlider({
-		Name = 'Threshold',
-		Min = 100,
-		Max = 1000,
-		Default = 300,
-		Suffix = ' studs/s',
-		Darker = true
-	})
-	
-end)
-
-run(function()
 	local AntiInvisible
 	local threads = {}
 	local whitelist = {
@@ -3218,6 +3070,154 @@ run(function()
 		end,
 		Tooltip = 'applies tool grip pos'
 	})
+end)
+
+run(function()
+	local AntiCarFling
+	local CarContainer
+	local CarContainerParent
+	AntiCarFling = vape.Categories.World:CreateModule({
+		Name = 'AntiCarFling',
+		Function = function(callback)
+			if callback then
+				CarContainer = workspace:FindFirstChild('CarContainer')
+				if CarContainer then
+					CarContainerParent = CarContainer.Parent
+					CarContainer.Parent = nil
+				end
+				notif('AntiCarFling', 'hided cars.', 5, 'alert')
+			elseif CarContainer then
+				CarContainer.Parent = CarContainerParent
+				CarContainer = nil
+				CarContainerParent = nil
+			end
+		end,
+		Tooltip = 'just prevents u getting fucked by cars'
+	})
+end)
+
+run(function()
+	local AntiFling
+	local modified = {}
+	
+	local function Modify(part)
+		if part:IsA('BasePart') and part.CollisionGroup == 'Vehicles' then
+			if not modified[part] then
+				modified[part] = part.CanCollide
+			end
+	
+			part.CanCollide = false
+		end
+	end
+	
+	AntiFling = vape.Categories.World:CreateModule({
+		Name = 'AntiFling',
+		Function = function(callback)
+			if callback then
+				AntiFling:Clean(workspace.CarContainer.DescendantAdded:Connect(Modify))
+				for _, part in workspace.CarContainer:QueryDescendants('BasePart') do
+					Modify(part)
+				end
+			else
+				for part, value in modified do
+					part.CanCollide = value
+				end
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Prevent certain methods of flinging you'
+	})
+end)
+
+run(function()
+	local AntiHeadFling
+	local Threshold
+	local triggered = false
+	
+	local allowedParts = {
+		Head = true,
+		HumanoidRootPart = true,
+		['Left Arm'] = true,
+		['Right Arm'] = true,
+		['Left Leg'] = true,
+		['Right Leg'] = true,
+		Torso = true
+	}
+	
+	local function trigger(part, speed)
+		if triggered then
+			return
+		end
+	
+		triggered = true
+		local placeId = game.PlaceId
+		local jobId = game.JobId
+		local alone = #playersService:GetPlayers() <= 1
+	
+		AntiHeadFling:Toggle()
+		lplr:Kick(string.format('Kill fling: %s at %.1f studs/s. rejoining...', part.Name, speed))
+	
+		task.spawn(function()
+			local ok, err = pcall(function()
+				local teleportService = game:GetService('TeleportService')
+				if alone or jobId == '' then
+					teleportService:Teleport(placeId, lplr)
+				else
+					teleportService:TeleportToPlaceInstance(placeId, jobId, lplr)
+				end
+			end)
+	
+			if not ok then
+				warn('Rejoin failed: ' .. tostring(err))
+			end
+		end)
+	end
+	
+	local function check()
+		if triggered then
+			return
+		end
+	
+		local character = lplr.Character
+		local humanoid = character and character:FindFirstChildOfClass('Humanoid')
+		if not humanoid or (humanoid.Health > 0 and humanoid:GetState() ~= Enum.HumanoidStateType.Dead) then
+			return
+		end
+	
+		for _, part in character:GetChildren() do
+			if part:IsA('BasePart') and allowedParts[part.Name] then
+				local speed = part:GetVelocityAtPosition(part.Position).Magnitude
+				if speed > Threshold.Value then
+					trigger(part, speed)
+					return
+				end
+			end
+		end
+	end
+	
+	AntiHeadFling = vape.Categories.World:CreateModule({
+		Name = 'AntiHeadFling',
+		Function = function(callback)
+			if callback then
+				triggered = false
+				AntiHeadFling:Clean(runService.PreSimulation:Connect(check))
+				AntiHeadFling:Clean(runService.PostSimulation:Connect(check))
+			else
+				triggered = false
+			end
+		end,
+		Tooltip = 'Rejoin when your character is flung after dying.'
+	})
+	
+	Threshold = AntiHeadFling:CreateSlider({
+		Name = 'Threshold',
+		Min = 100,
+		Max = 1000,
+		Default = 300,
+		Suffix = ' studs/s',
+		Darker = true
+	})
+	
 end)
 
 run(function()
