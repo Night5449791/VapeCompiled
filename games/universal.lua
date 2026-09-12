@@ -6746,6 +6746,7 @@ run(function()
 	local cReloadVape
 	local cChangeTeam
 	local cWhitelist
+	local cTarget
 	local oldCameraSubject
 	local viewDeathConnection
 	
@@ -6822,6 +6823,39 @@ run(function()
 		notif('Whitelist', player.DisplayName..' has been whitelisted.', 5)
 	end
 	
+	local function handleTargetCommand(command, prefix)
+		local isBlacklist = command == 'blacklist'
+		local target = findPlayer(prefix)
+		local player = target and target.Player
+		if not player and isBlacklist then
+			player = playersService:FindFirstChild(prefix)
+		end
+		if not player then
+			notif('Target', 'No living player found.', 5, 'warning')
+			return
+		end
+	
+		local targets = vape.Categories.Targets
+		local isTargeted = table.find(targets.ListEnabled, player.Name) ~= nil
+		if isBlacklist then
+			if isTargeted then
+				targets:ChangeValue(player.Name)
+			end
+			notif('Target', player.DisplayName..' has been blacklisted.', 5)
+			return
+		end
+	
+		if not isTargeted then
+			targets:ChangeValue(player.Name)
+		end
+		notif('Target', player.DisplayName..' has been targeted.', 5)
+	end
+	
+	local targetCommands = {
+		target = true,
+		blacklist = true
+	}
+	
 	ChatCommand = vape.Categories.Utility:CreateModule({
 		Name = 'ChatCommand',
 		Function = function(callback)
@@ -6882,6 +6916,11 @@ run(function()
 					local loweredCommand = command and command:lower()
 					if loweredCommand and whitelistCommands[loweredCommand] and cWhitelist.Enabled then
 						handleWhitelistCommand(loweredCommand, prefix:match('^%s*(.-)%s*$'))
+						return
+					end
+	
+					if loweredCommand and targetCommands[loweredCommand] and cTarget.Enabled then
+						handleTargetCommand(loweredCommand, prefix:match('^%s*(.-)%s*$'))
 						return
 					end
 	
@@ -6979,6 +7018,11 @@ run(function()
 	
 	cWhitelist = ChatCommand:CreateToggle({
 		Name = 'Whitelist',
+		Default = true
+	})
+	
+	cTarget = ChatCommand:CreateToggle({
+		Name = 'Target',
 		Default = true
 	})
 end)
