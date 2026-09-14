@@ -199,7 +199,7 @@ run(function()
 	end
 end)
 
-local Cheats = {Flags = {}, Flagged = {}, FlaggedInfo = {}}
+local Cheats = {Flags = {}, Flagged = {}}
 run(function()
 	function Cheats:Flag(plr, flagType, limit)
 		if self.Flagged[plr.UserId] then
@@ -215,7 +215,6 @@ run(function()
 
 		if flags[flagType] > limit then
 			self.Flagged[plr.UserId] = true
-			self.FlaggedInfo[plr.UserId] = flagType
 			vapeEvents.CheatFlagged:Fire(plr, flagType)
 		end
 	end
@@ -223,7 +222,6 @@ run(function()
 	function Cheats:Clear()
 		table.clear(self.Flags)
 		table.clear(self.Flagged)
-		table.clear(self.FlaggedInfo)
 	end
 end)
 
@@ -470,9 +468,7 @@ run(function()
 		local text = ''
 		for _, plr in playersService:GetPlayers() do
 			if Cheats.Flagged[plr.UserId] then
-				local label = plr.DisplayName ~= plr.Name and plr.DisplayName or plr.Name
-				local flag = Cheats.FlaggedInfo[plr.UserId] or 'unknown'
-				text = text..'\n'..label..' ('..flag..')'
+				text = text..'\n'..(plr.DisplayName ~= plr.Name and plr.DisplayName..' ('..plr.Name..')' or plr.Name)
 			end
 		end
 
@@ -3183,7 +3179,7 @@ end)
 run(function()
 	local AutoPickup
 	local items = {}
-	local pickupList = {Guard = {}, Prisoner = {}, Criminal = {}}
+	local PickupList = {}
 	
 	local function AddPickup(pickup)
 		if pickup:IsA('Model') and pickup.Name ~= 'Model' and pickup:GetAttribute('ToolName') then
@@ -3192,6 +3188,11 @@ run(function()
 				pickup.Name == 'TouchGiver'
 			})
 		end
+	end
+	
+	local function hasTool(name, backpack)
+		local tool = lplr.Character:FindFirstChildWhichIsA('Tool')
+		return backpack:FindFirstChild(name) or tool and tool.Name == name and tool
 	end
 	
 	AutoPickup = vape.Categories.Inventory:CreateModule({
@@ -3225,23 +3226,15 @@ run(function()
 							for _, pickup in items do
 								if pickup[1].PrimaryPart and (pickup[1].PrimaryPart.Position - localpos).Magnitude < 12 then
 									local tool = pickup[1]:GetAttribute('ToolName')
-									if pickup[2] then
-										local found = false
-										for _, entry in pickupList[lplr.Team == teams.Guards and 'Guard' or (lplr.Team == teams.Criminals and 'Criminal' or 'Prisoner')] do
-											if not backpack:FindFirstChild(entry) then
-												found = tool ~= entry
-												break
-											end
-										end
-	
-										if found then
-											continue
-										end
+									if hasTool(tool, backpack) then
+										continue
 									end
 	
-									if not backpack:FindFirstChild(tool) then
-										replicatedStorage.Remotes.GiverPressed:FireServer(pickup[1])
+									if pickup[2] and not table.find(PickupList[lplr.Team == teams.Guards and 'Guard' or (lplr.Team == teams.Criminals and 'Criminal' or 'Prisoner')].ListEnabled, tool) then
+										continue
 									end
+	
+									replicatedStorage.Remotes.GiverPressed:FireServer(pickup[1])
 								end
 							end
 						end
@@ -3257,19 +3250,10 @@ run(function()
 	})
 	
 	for _, team in {'Prisoner', 'Guard', 'Criminal'} do
-		AutoPickup:CreateTextList({
-			Name = team..' Pickups',
-			Default = {team == 'Criminal' and '1/AK-47' or '1/MP5', '2/Remington 870'},
-			Placeholder = 'priority/item',
-			Function = function(list)
-				table.clear(pickupList[team])
-	
-				for _, entry in list do
-					local data = entry:split('/')
-					local index = tonumber(data[1])
-					pickupList[team][index or 999] = data[2]
-				end
-			end
+		PickupList[team] = AutoPickup:CreateTextList({
+			Name = team,
+			Default = {team == 'Criminal' and 'AK-47' or 'MP5', 'Remington 870'},
+			Placeholder = 'item'
 		})
 	end
 end)

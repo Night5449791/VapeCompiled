@@ -14,7 +14,7 @@ end
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -146,17 +146,8 @@ local function removeTags(str)
 	return (str:gsub('<[^<>]->', ''))
 end
 
-local function rakNetCheck(module)
-	if not (raknet and raknet.add_send_hook and pcall(raknet.add_send_hook, function() end)) then
-		notif(module, 'This feature requires raknet! (risky feature, please do not use on mains.)', 10, 'warning')
-		return false
-	end
-
-	return true
-end
-
 local visited, attempted, tpSwitch = {}, {}, false
-local cacheExpire, cache = tick()
+local cacheExpire, cache = os.clock()
 local function serverHop(pointer, filter)
 	visited = shared.vapeserverhoplist and shared.vapeserverhoplist:split('/') or {}
 	if not table.find(visited, game.JobId) then
@@ -168,14 +159,14 @@ local function serverHop(pointer, filter)
 	end
 
 	local success, httpdata = pcall(function()
-		return cacheExpire < tick() and game:HttpGet('https://games.roblox.com/v1/games/'..game.PlaceId..'/servers/Public?sortOrder='..(filter == 'Ascending' and 1 or 2)..'&excludeFullGames=true&limit=100'..(pointer and '&cursor='..pointer or '')) or cache
+		return cacheExpire < os.clock() and game:HttpGet('https://games.roblox.com/v1/games/'..game.PlaceId..'/servers/Public?sortOrder='..(filter == 'Ascending' and 1 or 2)..'&excludeFullGames=true&limit=100'..(pointer and '&cursor='..pointer or '')) or cache
 	end)
 
 	local data = success and httpService:JSONDecode(httpdata) or nil
 	if data and data.data then
 		for _, v in data.data do
 			if tonumber(v.playing) < playersService.MaxPlayers and not table.find(visited, v.id) and not table.find(attempted, v.id) then
-				cacheExpire, cache = tick() + 60, httpdata
+				cacheExpire, cache = os.clock() + 60, httpdata
 				table.insert(attempted, v.id)
 
 				notif('Vape', 'Found! Teleporting.', 5)
@@ -446,13 +437,8 @@ run(function()
 			return true
 		end
 
-		if arg then
-			arg = arg:lower()
-			for _, name in {lplr.Name, lplr.DisplayName} do
-				if name:lower():sub(1, arg:len()) == arg then
-					return true
-				end
-			end
+		if arg and lplr.Name:lower():sub(1, arg:len()) == arg:lower() then
+			return true
 		end
 
 		return false
@@ -752,12 +738,12 @@ run(function()
 	function whitelist:update(first)
 		local suc = pcall(function()
 			local _, subbed = pcall(function()
-				return game:HttpGet('https://github.com/Night5449791/whitelists')
+				return game:HttpGet('https://github.com/7GrandDadPGN/whitelists')
 			end)
 			local commit = subbed:find('currentOid')
 			commit = commit and subbed:sub(commit + 13, commit + 52) or nil
 			commit = commit and #commit == 40 and commit or 'main'
-			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/Night5449791/whitelists/'..commit..'/PlayerWhitelist.json', true)
+			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/whitelists/'..commit..'/PlayerWhitelist.json', true)
 		end)
 		if not suc or not hash or not whitelist.get then return true end
 		whitelist.loaded = true
@@ -930,18 +916,6 @@ run(function()
 			else
 				vape:Uninject()
 			end
-		end,
-		reload = function()
-			if isfile('newvape/main.lua') then
-				delfile('newvape/main.lua')
-			end
-			if isfolder('newvape/libraries') then
-				delfolder('newvape/libraries')
-			end
-			if isfolder('newvape/games') then
-				delfolder('newvape/games')
-			end
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeV4ForRoblox/main/NewMainScript.lua', true))()
 		end,
 		void = function()
 			if entitylib.isAlive then
@@ -1353,6 +1327,10 @@ run(function()
 		FindPartOnRayWithIgnoreList = {
 			Hook = workspace.FindPartOnRayWithIgnoreList,
 			Function = function(args)
+				if typeof(args[1]) ~= 'Ray' then
+					return
+				end
+
 				local entity, targetPart, origin = getTarget(args[1].Origin, {args[2]})
 				if not entity then
 					return
@@ -1373,6 +1351,10 @@ run(function()
 		Raycast = {
 			Hook = workspace.Raycast,
 			Function = function(args)
+				if typeof(args[1]) ~= 'Vector3' or typeof(args[2]) ~= 'Vector3' or args[3] and typeof(args[3]) ~= 'RaycastParams' then
+					return
+				end
+
 				if RayMethod.Value ~= 'All' and args[3] and args[3].FilterType ~= Enum.RaycastFilterType[RayMethod.Value] then
 					return
 				end
@@ -1392,6 +1374,10 @@ run(function()
 		ScreenPointToRay = {
 			Hook = Instance.new('Camera').ScreenPointToRay,
 			Function = function(args)
+				if args[3] and type(args[3]) ~= 'number' then
+					return
+				end
+
 				local entity, targetPart, origin = getTarget(gameCamera.CFrame.Position)
 				if not entity then
 					return
@@ -1415,6 +1401,10 @@ run(function()
 		Ray = {
 			Hook = Ray.new,
 			Function = function(args)
+				if typeof(args[1]) ~= 'Vector3' or typeof(args[2]) ~= 'Vector3' then
+					return
+				end
+
 				local entity, targetPart, origin = getTarget(args[1])
 				if not entity then
 					return
@@ -1445,7 +1435,7 @@ run(function()
 		end
 
 		local caller = getcallingscript()
-		if caller then
+		if typeof(caller) == 'Instance' and caller then
 			if table.find(IgnoredScripts.ListEnabled, tostring(caller)) then
 				return oldnamecall(...)
 			end
@@ -1486,7 +1476,7 @@ run(function()
 						end
 
 						local caller = getcallingscript()
-						if caller then
+						if typeof(caller) == 'Instance' and caller then
 							if table.find(IgnoredScripts.ListEnabled, tostring(caller)) then
 								return oldnamecall(...)
 							end
@@ -2554,14 +2544,14 @@ run(function()
 		if entitylib.isAlive then
 			local isR15 = entitylib.character.Humanoid.RigType == Enum.HumanoidRigType.R15
 			local anim = Instance.new('Animation')
-			anim.AnimationId = 'rbxassetid://'..(isR15 and '18537363391' or '215384594')
+			anim.AnimationId = 'rbxassetid://'..(isR15 and '18665825805' or '215384594')
 			animtrack = entitylib.character.Humanoid.Animator:LoadAnimation(anim)
 			animtrack.Priority = Enum.AnimationPriority.Action4
 			animtrack:Play(0, 0.001, 0)
 			anim:Destroy()
 	
 			task.delay(0, function()
-				animtrack.TimePosition = isR15 and 0.77 or 0.38
+				animtrack.TimePosition = isR15 and 1.95 or 0.4
 			end)
 		end
 	end
@@ -2633,8 +2623,9 @@ run(function()
 				params.FilterDescendantsInstances = {terrain}
 				local Platform = Instance.new('Part')
 				Platform.CanQuery = false
+				Platform.CanTouch = false
 				Platform.Anchored = true
-				Platform.Size = Vector3.one
+				Platform.Size = Vector3.new(3, 1, 3)
 				Platform.Transparency = 1
 				Platform.Parent = gameCamera
 	
@@ -2782,33 +2773,38 @@ run(function()
 					MouseTP:Toggle()
 	
 					if entitylib.isAlive then
+						local root = entitylib.character.RootPart
+						local Invisible = vape.Modules.Invisible
+						if Invisible and Invisible.Enabled then
+							runService.PreSimulation:Wait()
+						end
+	
 						if MovementMode.Value == 'Motor' then
-							motorMove(entitylib.character.RootPart, CFrame.lookAlong(position, entitylib.character.RootPart.CFrame.LookVector))
+							motorMove(root, CFrame.lookAlong(position, root.CFrame.LookVector))
 						else
-							entitylib.character.RootPart.CFrame = CFrame.lookAlong(position, entitylib.character.RootPart.CFrame.LookVector)
+							root.CFrame = CFrame.lookAlong(position, root.CFrame.LookVector)
 						end
 					end
 				else
-					MouseTP:Clean(runService.Heartbeat:Connect(function()
+					local updateClock = 0
+					MouseTP:Clean(runService.PreSimulation:Connect(function()
 						if entitylib.isAlive then
 							entitylib.character.RootPart.AssemblyLinearVelocity = Vector3.zero
-						end
-					end))
 	
-					repeat
-						if entitylib.isAlive then
-							local direction = CFrame.lookAt(entitylib.character.RootPart.Position, position).LookVector * math.min((entitylib.character.RootPart.Position - position).Magnitude, Length.Value)
-							entitylib.character.RootPart.CFrame += direction
-							if (entitylib.character.RootPart.Position - position).Magnitude < 3 and MouseTP.Enabled then
-								MouseTP:Toggle()
+							if (os.clock() - updateClock) > Delay.Value then
+								local direction = CFrame.lookAt(entitylib.character.RootPart.Position, position).LookVector * math.min((entitylib.character.RootPart.Position - position).Magnitude, Length.Value)
+								entitylib.character.RootPart.CFrame += direction
+								updateClock = os.clock()
+	
+								if (entitylib.character.RootPart.Position - position).Magnitude < 3 and MouseTP.Enabled then
+									MouseTP:Toggle()
+								end
 							end
-						elseif MouseTP.Enabled then
+						else
 							MouseTP:Toggle()
 							notif('MouseTP', 'Character missing', 5, 'warning')
 						end
-	
-						task.wait(Delay.Value)
-					until not MouseTP.Enabled
+					end))
 				end
 			end
 		end,
@@ -3349,6 +3345,42 @@ run(function()
 	})
 	ZToggle = SpinBot:CreateToggle({
 		Name = 'Spin Z'
+	})
+end)
+
+run(function()
+	local Swim
+	local terrain = cloneref(workspace:FindFirstChildWhichIsA('Terrain'))
+	local lastpos = Region3.new(Vector3.zero, Vector3.zero)
+	
+	Swim = vape.Categories.Blatant:CreateModule({
+		Name = 'Swim',
+		Function = function(callback)
+			if callback then
+				Swim:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive then
+						local root = entitylib.character.RootPart
+						local moving = entitylib.character.Humanoid.MoveDirection ~= Vector3.zero
+						local rootvelo = root.Velocity
+						local space = inputService:IsKeyDown(Enum.KeyCode.Space)
+	
+						if terrain then
+							local factor = (moving or space) and Vector3.new(6, 6, 6) or Vector3.new(2, 1, 2)
+							local pos = root.Position - Vector3.new(0, 1, 0)
+							local newpos = Region3.new(pos - factor, pos + factor):ExpandToGrid(4)
+							terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
+							terrain:ReplaceMaterial(newpos, 4, Enum.Material.Air, Enum.Material.Water)
+							lastpos = newpos
+						end
+					end
+				end))
+			else
+				if terrain and lastpos then
+					terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
+				end
+			end
+		end,
+		Tooltip = 'Lets you swim midair'
 	})
 end)
 
@@ -5176,9 +5208,10 @@ run(function()
 	local models = {}
 	
 	local function addMesh(ent)
-		if vape.ThreadFix then 
+		if vape.ThreadFix then
 			setthreadidentity(8)
 		end
+	
 		local root = ent.RootPart
 		local part = Instance.new('Part')
 		part.Size = Vector3.new(3, 3, 3)
@@ -5200,7 +5233,7 @@ run(function()
 	end
 	
 	local function removeMesh(ent)
-		if models[ent.RootPart] then 
+		if models[ent.RootPart] then
 			models[ent.RootPart]:Destroy()
 			models[ent.RootPart] = nil
 		end
@@ -5209,21 +5242,21 @@ run(function()
 	PlayerModel = vape.Categories.Render:CreateModule({
 		Name = 'PlayerModel',
 		Function = function(callback)
-			if callback then 
-				if Local.Enabled then 
+			if callback then
+				if Local.Enabled then
 					PlayerModel:Clean(entitylib.Events.LocalAdded:Connect(addMesh))
 					PlayerModel:Clean(entitylib.Events.LocalRemoved:Connect(removeMesh))
-					if entitylib.isAlive then 
+					if entitylib.isAlive then
 						task.spawn(addMesh, entitylib.character)
 					end
 				end
 				PlayerModel:Clean(entitylib.Events.EntityAdded:Connect(addMesh))
 				PlayerModel:Clean(entitylib.Events.EntityRemoved:Connect(removeMesh))
-				for _, ent in entitylib.List do 
+				for _, ent in entitylib.List do
 					task.spawn(addMesh, ent)
 				end
 			else
-				for _, part in models do 
+				for _, part in models do
 					part:Destroy()
 				end
 				table.clear(models)
@@ -5238,18 +5271,18 @@ run(function()
 		Default = 1,
 		Decimal = 100,
 		Function = function(val)
-			for _, part in models do 
+			for _, part in models do
 				part.Mesh.Scale = Vector3.one * val
 			end
 		end
 	})
-	for _, name in {'Rotation X', 'Rotation Y', 'Rotation Z'} do 
+	for _, name in {'Rotation X', 'Rotation Y', 'Rotation Z'} do
 		table.insert(Rots, PlayerModel:CreateSlider({
 			Name = name,
 			Min = 0,
 			Max = 360,
 			Function = function(val)
-				for root, part in models do 
+				for root, part in models do
 					part.WeldConstraint.Enabled = false
 					part.CFrame = root.CFrame * CFrame.Angles(math.rad(Rots[1].Value), math.rad(Rots[2].Value), math.rad(Rots[3].Value))
 					part.WeldConstraint.Enabled = true
@@ -5260,7 +5293,7 @@ run(function()
 	Local = PlayerModel:CreateToggle({
 		Name = 'Local',
 		Function = function()
-			if PlayerModel.Enabled then 
+			if PlayerModel.Enabled then
 				PlayerModel:Toggle()
 				PlayerModel:Toggle()
 			end
@@ -5270,7 +5303,7 @@ run(function()
 		Name = 'Mesh',
 		Placeholder = 'mesh id',
 		Function = function()
-			for _, part in models do 
+			for _, part in models do
 				part.Mesh.MeshId = Mesh.Value
 			end
 		end
@@ -5279,7 +5312,7 @@ run(function()
 		Name = 'Texture',
 		Placeholder = 'texture id',
 		Function = function()
-			for _, part in models do 
+			for _, part in models do
 				part.Mesh.TextureId = Texture.Value
 			end
 		end
@@ -5498,7 +5531,7 @@ run(function()
 					end
 				end))
 	
-				for _, v in workspace:GetDescendants() do
+				for _, v in workspace:QueryDescendants('BasePart, Model') do
 					Add(v)
 				end
 			else
@@ -6677,32 +6710,33 @@ run(function()
 	local IDBox
 	local Priority
 	local Speed
-	local anim, animobject
+	local NoFetch
+	local track, anim
 	
 	local function playAnimation(char)
-		local animcheck = anim
+		local animcheck = track
 		if animcheck then
-			anim = nil
+			track = nil
 			animcheck:Stop()
 		end
 	
-		local suc, res = pcall(function()
-			anim = char.Humanoid.Animator:LoadAnimation(animobject)
+		local success, result = pcall(function()
+			track = char.Humanoid.Animator:LoadAnimation(anim)
 		end)
 	
-		if suc then
-			local currentanim = anim
-			anim.Priority = Enum.AnimationPriority[Priority.Value]
-			anim:Play()
-			anim:AdjustSpeed(Speed.Value)
+		if success then
+			local currentanim = track
+			track.Priority = Enum.AnimationPriority[Priority.Value]
+			track:Play()
+			track:AdjustSpeed(Speed.Value)
 	
-			AnimationPlayer:Clean(anim.Stopped:Connect(function()
-				if currentanim == anim then
-					anim:Play()
+			AnimationPlayer:Clean(track.Stopped:Connect(function()
+				if currentanim == track then
+					track:Play()
 				end
 			end))
 		else
-			notif('AnimationPlayer', 'failed to load anim : '..(res or 'invalid animation id'), 5, 'warning')
+			notif('AnimationPlayer', 'failed to load anim : '..(result or 'invalid animation id'), 5, 'warning')
 		end
 	end
 	
@@ -6711,21 +6745,25 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local success, id = pcall(function()
+					if NoFetch.Enabled then
+						return
+					end
+	
 					return string.match(game:GetObjects('rbxassetid://'..IDBox.Value)[1].AnimationId, '%?id=(%d+)')
 				end)
 	
-				animobject = Instance.new('Animation')
-				animobject.AnimationId = 'rbxassetid://'..(success and id or IDBox.Value)
+				anim = Instance.new('Animation')
+				anim.AnimationId = 'rbxassetid://'..(success and id or IDBox.Value)
 	
 				if entitylib.isAlive then
 					playAnimation(entitylib.character)
 				end
 	
 				AnimationPlayer:Clean(entitylib.Events.LocalAdded:Connect(playAnimation))
-				AnimationPlayer:Clean(animobject)
+				AnimationPlayer:Clean(anim)
 			else
-				if anim then
-					anim:Stop()
+				if track then
+					track:Stop()
 				end
 			end
 		end,
@@ -6751,21 +6789,27 @@ run(function()
 		Name = 'Priority',
 		List = prio,
 		Function = function(val)
-			if anim then
-				anim.Priority = Enum.AnimationPriority[val]
+			if track then
+				track.Priority = Enum.AnimationPriority[val]
 			end
 		end
 	})
 	Speed = AnimationPlayer:CreateSlider({
 		Name = 'Speed',
 		Function = function(val)
-			if anim then
-				anim:AdjustSpeed(val)
+			if track then
+				track:AdjustSpeed(val)
 			end
 		end,
 		Min = 0.1,
 		Max = 2,
+		Default = 1,
 		Decimal = 10
+	})
+	NoFetch = AnimationPlayer:CreateToggle({
+		Name = 'No Fetch',
+		Tooltip = 'Do not attempt to fetch the asset with GetObjects',
+		Default = true
 	})
 end)
 
@@ -7142,6 +7186,54 @@ run(function()
 	cTarget = ChatCommand:CreateToggle({
 		Name = 'Target',
 		Default = true
+	})
+end)
+
+run(function()
+	local HumSpoofer
+	local State
+	local ReplaceJump
+	local Jump
+	
+	HumSpoofer = vape.Categories.Utility:CreateModule({
+		Name = 'HumSpoofer',
+		Function = function(callback)
+			if callback then
+				HumSpoofer:Clean(runService.Heartbeat:Connect(function()
+					if entitylib.isAlive then
+						local hum = entitylib.character.Humanoid
+						sethiddenproperty(hum, 'NetworkHumanoidState', Enum.HumanoidStateType[State.Value].Value)
+	
+						if ReplaceJump.Enabled then
+							sethiddenproperty(hum, 'JumpReplicate', Jump.Enabled)
+						end
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Spoof humanoid and jump states on the server.'
+	})
+	local states = {}
+	for _, v in Enum.HumanoidStateType:GetEnumItems() do
+		if v.Name ~= 'None' then
+			table.insert(states, v.Name)
+		end
+	end
+	State = HumSpoofer:CreateDropdown({
+		Name = 'Humanoid State',
+		List = states
+	})
+	ReplaceJump = HumSpoofer:CreateToggle({
+		Name = 'Replace Jump',
+		Function = function(callback)
+			Jump.Object.Visible = callback
+		end,
+		Tooltip = 'Replace the current jump state on the server'
+	})
+	Jump = HumSpoofer:CreateToggle({
+		Name = 'Jump State',
+		Visible = false,
+		Darker = true
 	})
 end)
 
