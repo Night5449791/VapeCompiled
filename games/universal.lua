@@ -6935,7 +6935,6 @@ run(function()
 	local cReloadVape
 	local cChangeTeam
 	local cWhitelist
-	local cTarget
 	local oldCameraSubject
 	local viewDeathConnection
 	local replicatedStorage = game:GetService('ReplicatedStorage')
@@ -6984,14 +6983,6 @@ run(function()
 		 whitelist = true,
 		 unwl = true,
 		 unwhitelist = true
-	}
-	
-	local targetCommands = {
-		target = true,
-		untarget = true,
-		-- idk why lol just pure fun
-		addskid = true,
-		delskid = true
 	}
 	
 	ChatCommand = vape.Categories.Utility:CreateModule({
@@ -7065,40 +7056,6 @@ run(function()
 							friends:ChangeValue(player.Name)
 						end
 						notif('Whitelist', player.DisplayName..' has been whitelisted.', 5)
-					elseif loweredCommand and targetCommands[loweredCommand] and cTarget.Enabled then
-						local isBlacklist = loweredCommand == 'blacklist'
-						local target = findPlayer(prefix:match('^%s*(.-)%s*$'))
-						local player = target and target.Player
-						if not player and isBlacklist then
-							player = playersService:FindFirstChild(prefix)
-						end
-						if not player then
-							notif('Target', 'No living player found.', 5, 'warning')
-							return
-						end
-	
-						local targets = vape.Categories.Targets
-						local isTargeted = table.find(targets.ListEnabled, player.Name) ~= nil
-						if isBlacklist then
-							if isTargeted then
-								targets:ChangeValue(player.Name)
-							end
-							notif('Target', player.DisplayName..' has been blacklisted.', 5)
-							return
-						elseif loweredCommand == 'untarget' then
-							if isTargeted then
-								targets:ChangeValue(player.Name)
-								notif('Target', player.DisplayName..' has been untargeted.', 5)
-							else
-								notif('Target', player.DisplayName..' is not currently targeted.', 5, 'warning')
-							end
-							return
-						end
-	
-						if not isTargeted then
-							targets:ChangeValue(player.Name)
-						end
-						notif('Target', player.DisplayName..' has been targeted.', 5)
 					elseif loweredMessage == '.unview' then
 						restoreCamera()
 					elseif loweredCommand == 'tp' and cPlayerTP.Enabled then
@@ -7182,11 +7139,6 @@ run(function()
 	
 	cWhitelist = ChatCommand:CreateToggle({
 		Name = 'Whitelist',
-		Default = true
-	})
-	
-	cTarget = ChatCommand:CreateToggle({
-		Name = 'Target',
 		Default = true
 	})
 end)
