@@ -6938,6 +6938,7 @@ run(function()
 	local cFollow
 	local viewDeathConnection
 	local following, followThread
+	local replicatedStorage = game:GetService('ReplicatedStorage')
 	local teamsService = game:GetService('Teams')
 	local pathfindingService = game:GetService('PathfindingService')
 	
