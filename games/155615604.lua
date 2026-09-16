@@ -2992,7 +2992,7 @@ run(function()
 	})
 	
 	local function getTarget(seat)
-		if tempList[seat] and tempList[seat].Health > 0 and not tempList[seat].Humanoid.Sit then
+		if tempList[seat] and tempList[seat].Health > 0 and not tempList[seat].Humanoid.Sit and select(2, whitelist:get(tempList[seat].Player)) then
 			return tempList[seat]
 		end
 	
