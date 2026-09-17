@@ -2632,7 +2632,7 @@ run(function()
 	    Function = function(callback)
 	        if callback then
 	            AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-	                    sendMessage('Kicked', plr)
+	                sendMessage('Kicked', plr)
 	            end))
 	        end
 	    end,
@@ -2971,10 +2971,11 @@ run(function()
 		if entitylib.isAlive then
 			local cloned = table.clone(entitylib.List)
 			table.sort(cloned, function(a, b)
-				return (lastFling[a.Player.Name] or 0) < (lastFling[b.Player.Name] or 0)
+				return (lastFling[a.Player and a.Player.Name or ''] or 0) < (lastFling[b.Player and b.Player.Name or ''] or 0)
 			end)
 	
 			for _, entity in cloned do
+				if not entity.Player then continue end
 				if not select(2, whitelist:get(entity.Player)) then continue end
 				if entity.Player.Team == teams.Neutral then continue end
 				if not (entity.Humanoid.Sit and entity.Humanoid.SeatPart.Anchored) and entity.Humanoid.Health > 0 and (os.clock() - entity.SpawnTime) > 5 then
@@ -3056,7 +3057,7 @@ run(function()
 							dir = math.clamp(dir + (diff * dt * 26), -12, 14)
 						end
 	
-						if Movement.Enabled and ((root.Position - Vector3.new(633, 98, 2489)).Magnitude < 40 or (os.clock() - entitylib.character.SpawnTime) < 0.4) then
+						if Movement.Enabled then
 							root.CFrame = CFrame.new(Vector3.new(610 + dir, 100, 2494))
 							root.AssemblyLinearVelocity = Vector3.zero
 						end
