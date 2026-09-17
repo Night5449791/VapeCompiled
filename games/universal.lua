@@ -6935,6 +6935,7 @@ run(function()
 	local cReloadVape
 	local cChangeTeam
 	local cWhitelist
+	local cBlacklist
 	local oldCameraSubject
 	local viewDeathConnection
 	local teamsService = game:GetService('Teams')
@@ -6982,6 +6983,13 @@ run(function()
 		 whitelist = true,
 		 unwl = true,
 		 unwhitelist = true
+	}
+	
+	local blacklistCommands = {
+		 target = true,
+		 blacklist = true,
+		 untarget = true,
+		 unblacklist = true
 	}
 	
 	ChatCommand = vape.Categories.Utility:CreateModule({
@@ -7055,6 +7063,32 @@ run(function()
 							friends:ChangeValue(player.Name)
 						end
 						notif('Whitelist', player.DisplayName..' has been whitelisted.', 5)
+					elseif loweredCommand and blacklistCommands[loweredCommand] and cBlacklist.Enabled then
+						local isUnblacklist = loweredCommand == 'untarget' or loweredCommand == 'unblacklist'
+						local target = findPlayer(prefix:match('^%s*(.-)%s*$'), true)
+						local player = target and target.Player
+						if not player and isUnblacklist then
+							player = playersService:FindFirstChild(prefix)
+						end
+						if not player then
+							notif('Blacklist', 'No player found.', 5, 'warning')
+							return
+						end
+	
+						local targets = vape.Categories.Targets
+						local isBlacklisted = table.find(targets.ListEnabled, player.Name) ~= nil
+						if isUnblacklist then
+							if isBlacklisted then
+								targets:ChangeValue(player.Name)
+							end
+							notif('Blacklist', player.DisplayName..' has been unblacklisted.', 5)
+							return
+						end
+	
+						if not isBlacklisted then
+							targets:ChangeValue(player.Name)
+						end
+						notif('Blacklist', player.DisplayName..' has been blacklisted.', 5)
 					elseif loweredMessage == '.unview' then
 						restoreCamera()
 					elseif loweredCommand == 'tp' and cPlayerTP.Enabled then
@@ -7138,6 +7172,11 @@ run(function()
 	
 	cWhitelist = ChatCommand:CreateToggle({
 		Name = 'Whitelist',
+		Default = true
+	})
+	
+	cBlacklist = ChatCommand:CreateToggle({
+		Name = 'Blacklist',
 		Default = true
 	})
 end)
