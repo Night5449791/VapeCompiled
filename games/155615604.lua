@@ -2603,6 +2603,14 @@ end)
 run(function()
 	local AutoToxic
 	local Toggles, Lists, Cloned, Presets = {}, {Kicked = {}}, {Kicked = {}}, {}
+	local lines = {
+		Kicked = {
+			'hey anticheat kick me | kicked <obj>',
+			'prison life moment | kicked <obj>',
+			'i wonder why you got kicked | kicked <obj>',
+			'do you also want an antifling? | kicked <obj>',
+		}
+	}
 	
 	local function sendMessage(name, obj, default)
 		local message = default
@@ -2646,15 +2654,6 @@ run(function()
 		Name = 'Kicked',
 		Default = true
 	})
-	
-	local lines = {
-		Kicked = {
-			'hey anticheat kick me | kicked <obj>',
-			'prison life moment | kicked <obj>',
-			'i wonder why you got kicked | kicked <obj>',
-			'do you also want an antifling? | kicked <obj>',
-		}
-	}
 	
 	pcall(function()
 		for _, group in textChatService:GetPresetsAsync().categoryGroups do
