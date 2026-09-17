@@ -2602,7 +2602,7 @@ end)
 
 run(function()
 	local AutoToxic
-	local Toggles, Lists, Cloned, Presets = {}, {Kicked = {}}, {Kicked = {}}, {}
+	local Toggles = {}
 	local lines = {
 		Kicked = {
 			'hey anticheat kick me | kicked <obj>',
@@ -2612,27 +2612,14 @@ run(function()
 		}
 	}
 	
-	local function sendMessage(name, obj, default)
-		local message = default
-		if #Lists[name] > 0 then
-			if #Cloned[name] <= 0 then
-				Cloned[name] = table.clone(Lists[name])
-			end
+	local function sendMessage(name, obj)
+		if #lines[name] <= 0 then return end
 	
-			local entry = Random.new():NextInteger(1, #Cloned[name])
-			message = Cloned[name][entry]
-			table.remove(Cloned[name], entry)
-		end
-	
-		if not message then return end
-	
-		message = message and message:gsub('<obj>', obj or '') or ''
+		local message = lines[name][Random.new():NextInteger(1, #lines[name])]
+		message = message:gsub('<obj>', obj or '')
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 			if textChatService:CanUserChatAsync(lplr.UserId) then
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
-				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets['So close'])
-			else
-				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets[message] or Presets['So close'])
 			end
 		else
 			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, 'All')
@@ -2644,7 +2631,7 @@ run(function()
 	    Function = function(callback)
 	        if callback then
 	            AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-	                    sendMessage('Kicked', plr, lines.Kicked[Random.new():NextInteger(1, #lines.Kicked)])
+	                    sendMessage('Kicked', plr)
 	            end))
 	        end
 	    end,
@@ -2654,17 +2641,6 @@ run(function()
 		Name = 'Kicked',
 		Default = true
 	})
-	
-	pcall(function()
-		for _, group in textChatService:GetPresetsAsync().categoryGroups do
-			for _, category in group.categories do
-				for _, message in category.messages do
-					Presets[message.value] = message.presetId
-					table.insert(Lists.Kicked, message.value)
-				end
-			end
-		end
-	end)
 end)
 
 run(function()
