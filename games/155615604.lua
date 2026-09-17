@@ -1846,33 +1846,13 @@ run(function()
 	local ChooseTeam
 	local teamsService = game:GetService('Teams')
 	
-	local function hasConnections(signal)
-		for _, v in getconnections(signal) do
-			if v.Function then return true end
-		end
-		return false
-	end
-	
-	local function clickTeamButton(name)
+	local function clickTeamButton()
 		local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
 		if gui then
 			for _, holder in gui:GetChildren() do
-				local button = holder:FindFirstChild('Button')
-				if button and button.AutoButtonColor then
-					local text = (holder.Name..' '..button.Text):lower()
-					for _, label in holder:GetDescendants() do
-						if label:IsA('TextLabel') or label:IsA('TextButton') then
-							text = text..' '..label.Text:lower()
-						end
-					end
-					if text:find(name:lower(), 1, true) then
-						for _, signal in {button.Activated, button.MouseButton1Click, button.MouseButton1Down, button.MouseButton1Up} do
-							if hasConnections(signal) then
-								firesignal(signal)
-							end
-						end
-						return true
-					end
+				if holder.Button.AutoButtonColor then
+					firesignal(holder.Button.MouseButton1Click)
+					return true
 				end
 			end
 		end
@@ -1894,7 +1874,7 @@ run(function()
 	                    task.wait(1.5)
 	                end
 	
-	                if not clickTeamButton(ChooseTeam.Value) then
+	                if not clickTeamButton() then
 	                    if reqteam then
 	                        reqteam:InvokeServer(teamsService:FindFirstChild(ChooseTeam.Value), 1)
 	                    else
