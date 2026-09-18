@@ -2968,52 +2968,100 @@ run(function()
 end)
 
 run(function()
-	local KickAll
+	local KickExploit
+	local Mode
+	local List
 	local Movement
 	local AutoRejoin
+	local PlayerLimit
+	local TimeLimit
 	local didClick = {}
 	local lastFling = {}
 	local tempList = setmetatable({}, {
 		__mode = 'k'
 	})
+	local whitelistCache = setmetatable({}, {
+		__mode = 'k'
+	})
+	local targetCache = {
+		time = 0,
+		list = {}
+	}
+	local seatCache = {
+		time = 0,
+		list = {}
+	}
+	local wheelsKilled = setmetatable({}, {
+		__mode = 'k'
+	})
+	local cyanColor = BrickColor.new('Cyan')
+	local seatVelocity = Vector3.new(10000, 10000, 0)
+	
+	local function isAttackable(plr)
+		local now = os.clock()
+		local cache = whitelistCache[plr]
+		if cache and cache.time > now then
+			return cache.attackable
+		end
+	
+		local attackable = select(2, whitelist:get(plr))
+		whitelistCache[plr] = {
+			time = now + 1,
+			attackable = attackable
+		}
+		return attackable
+	end
+	
+	local function canFling(entity)
+		local plr = entity.Player
+		if not plr then return false end
+		if not isAttackable(plr) then return false end
+		if isFriend(plr) then return false end
+		if plr.Team == teams.Neutral then return false end
+		if Mode.Value ~= 'All' and not table.find(List.ListEnabled, plr.Name) then return false end
+		return true
+	end
 	
 	local function getTarget(seat)
 		local cached = tempList[seat]
-		if cached and cached.Character and cached.Character.Parent and cached.Humanoid.Health > 0 and not cached.Humanoid.Sit then
+		if cached and cached.Character.Parent and cached.Humanoid.Health > 0 and not cached.Humanoid.Sit and canFling(cached) then
 			return cached
 		end
 	
-		if entitylib.isAlive then
-			local cloned = {}
+		if not entitylib.isAlive then return end
+	
+		local now = os.clock()
+		if targetCache.time < now then
+			targetCache.time = now + 0.1
+			table.clear(targetCache.list)
 			for _, entity in entitylib.List do
-				if entity.Player then
-					table.insert(cloned, entity)
+				if canFling(entity) then
+					table.insert(targetCache.list, entity)
 				end
 			end
-			table.sort(cloned, function(a, b)
-				return (lastFling[a.Player.Name] or 0) < (lastFling[b.Player.Name] or 0)
-			end)
+		end
 	
-			for _, entity in cloned do
-				if not select(2, whitelist:get(entity.Player)) then continue end
-				if isFriend(entity.Player) then continue end
-				if entity.Player.Team == teams.Neutral then continue end
+		local best, bestTime
+		for _, entity in targetCache.list do
+			local flingTime = lastFling[entity.Player.Name] or 0
+			if (not best or flingTime < bestTime) and entity.Character.Parent and entity.Humanoid.Health > 0 and (now - entity.SpawnTime) > 5 then
 				local seatPart = entity.Humanoid.SeatPart
-				if not (entity.Humanoid.Sit and seatPart and seatPart.Anchored) and entity.Humanoid.Health > 0 and (os.clock() - entity.SpawnTime) > 5 then
-					lastFling[entity.Player.Name] = os.clock()
-					tempList[seat] = entity
-					table.clear(cloned)
-					notif('KickAll', 'Attempted fling: '..entity.Player.Name, 5)
-					return entity
+				if not (entity.Humanoid.Sit and seatPart and seatPart.Anchored) then
+					best, bestTime = entity, flingTime
 				end
 			end
+		end
 	
-			table.clear(cloned)
+		if best then
+			lastFling[best.Player.Name] = now
+			tempList[seat] = best
+			notif('KickExploit', 'Attempted fling: '..best.Player.Name, 5)
+			return best
 		end
 	end
 	
-	KickAll = vape.Categories.World:CreateModule({
-		Name = 'KickAll',
+	KickExploit = vape.Categories.World:CreateModule({
+		Name = 'KickExploit',
 		Function = function(callback)
 			if callback then
 				if not vape.Modules.AntiFling.Enabled then
@@ -3023,7 +3071,7 @@ run(function()
 				local reqTimer = os.clock()
 				local startTime = os.clock()
 				local dir = 0
-				KickAll:Clean(runService.Heartbeat:Connect(function(dt)
+				KickExploit:Clean(runService.Heartbeat:Connect(function(dt)
 					if lplr.Team == teams.Neutral then
 						local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
 						if gui then
@@ -3041,7 +3089,7 @@ run(function()
 					if AutoRejoin.Enabled then
 						local plrCount = #teams.Guards:GetPlayers() + #teams.Inmates:GetPlayers() + #teams.Criminals:GetPlayers()
 	
-						if ((os.clock() - startTime) > 6 * 60 or plrCount <= 10) then
+						if ((os.clock() - startTime) > TimeLimit.Value * 60 or plrCount <= PlayerLimit.Value) then
 							if (os.clock() - reqTimer) > 1 then
 								vape.Modules.ServerHop:Toggle()
 								reqTimer = os.clock()
@@ -3057,25 +3105,28 @@ run(function()
 	
 						for _, button in workspace.Prison_ITEMS.buttons:GetChildren() do
 							if button.Name == 'Car Spawner' then
-								local mag = (button['Car Spawner'].Position - root.Position).Magnitude
-								if mag < 15 and (didClick[button] or 0) < os.clock() then
-									didClick[button] = os.clock() + 0.2
-									task.spawn(function()
-										replicatedStorage.Remotes.InteractWithItem:InvokeServer(button['Car Spawner'])
-									end)
-								end
+								local part = button:FindFirstChild('Car Spawner')
+								if part then
+									local mag = (part.Position - root.Position).Magnitude
+									if mag < 15 and (didClick[button] or 0) < os.clock() then
+										didClick[button] = os.clock() + 0.2
+										task.spawn(function()
+											replicatedStorage.Remotes.InteractWithItem:InvokeServer(part)
+										end)
+									end
 	
-								if mag < 50 and button['Car Spawner'].BrickColor == BrickColor.new('Cyan') and not didMove then
-									local diff = math.clamp((button['Car Spawner'].Position - root.Position).X, -1, 1)
-									dir = math.clamp(dir + (diff * dt * 26), -12, 14)
-									didMove = true
+									if mag < 50 and part.BrickColor == cyanColor and not didMove then
+										local diff = math.clamp((part.Position - root.Position).X, -1, 1)
+										dir = math.clamp(dir + (diff * dt * 24), -12, 14)
+										didMove = true
+									end
 								end
 							end
 						end
 	
 						if not didMove then
 							local diff = math.clamp(0 - dir, -1, 1)
-							dir = math.clamp(dir + (diff * dt * 26), -12, 14)
+							dir = math.clamp(dir + (diff * dt * 24), -12, 14)
 						end
 	
 						if Movement.Enabled then
@@ -3083,17 +3134,30 @@ run(function()
 							root.AssemblyLinearVelocity = Vector3.zero
 						end
 	
-						for _, seat in workspace.CarContainer:QueryDescendants('VehicleSeat') do
-							if isnetworkowner(seat) then
+						local now = os.clock()
+						if seatCache.time < now then
+							seatCache.time = now + 0.5
+							table.clear(seatCache.list)
+							for _, seat in workspace.CarContainer:QueryDescendants('VehicleSeat') do
+								table.insert(seatCache.list, seat)
+							end
+						end
+	
+						for _, seat in seatCache.list do
+							local carModel = seat.Parent and seat.Parent.Parent
+							if carModel and isnetworkowner(seat) then
 								local target = getTarget(seat)
 								if target then
-									seat.AssemblyLinearVelocity = Vector3.new(10000, 10000, 0)
+									seat.AssemblyLinearVelocity = seatVelocity
 									seat.CFrame = CFrame.new(target.RootPart.Position) * CFrame.new(-2, -2, -12)
 									sethiddenproperty(seat, 'PhysicsRepRootPart', target.RootPart)
 	
-									local wheels = seat.Parent.Parent:FindFirstChild('Wheels')
-									if wheels then
-										wheels:Destroy()
+									if not wheelsKilled[carModel] then
+										local wheels = carModel:FindFirstChild('Wheels')
+										if wheels then
+											wheels:Destroy()
+										end
+										wheelsKilled[carModel] = true
 									end
 								end
 							end
@@ -3104,12 +3168,53 @@ run(function()
 		end,
 		Tooltip = 'aesthetical, just remove collisions on vehicles please, this is the worst.'
 	})
-	Movement = KickAll:CreateToggle({
+	Mode = KickExploit:CreateDropdown({
+		Name = 'Mode',
+		List = {'All', 'Individual'},
+		Function = function(value)
+			List.Object.Visible = value ~= 'All'
+		end
+	})
+	List = KickExploit:CreateTextList({
+		Name = 'Targets',
+		Placeholder = 'Roblox username',
+		Player = true,
+		Visible = false,
+		Darker = true
+	})
+	Movement = KickExploit:CreateToggle({
 		Name = 'Movement',
 		Default = true
 	})
-	AutoRejoin = KickAll:CreateToggle({
-		Name = 'AutoRejoin'
+	AutoRejoin = KickExploit:CreateToggle({
+		Name = 'AutoRejoin',
+		Function = function(callback)
+			PlayerLimit.Object.Visible = callback
+			TimeLimit.Object.Visible = callback
+		end,
+		Tooltip = 'Automatically server hop after certain conditions are met.'
+	})
+	PlayerLimit = KickExploit:CreateSlider({
+		Name = 'Player Limit',
+		Min = 1,
+		Max = 24,
+		Default = 10,
+		Visible = false,
+		Darker = true,
+		Suffix = function(value)
+			return value == 1 and 'player' or 'players'
+		end
+	})
+	TimeLimit = KickExploit:CreateSlider({
+		Name = 'Time Limit',
+		Min = 1,
+		Max = 20,
+		Default = 6,
+		Visible = false,
+		Darker = true,
+		Suffix = function(value)
+			return value == 1 and 'minute' or 'minutes'
+		end
 	})
 end)
 

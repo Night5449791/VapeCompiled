@@ -33,6 +33,7 @@ local textService = cloneref(game:GetService('TextService'))
 local guiService = cloneref(game:GetService('GuiService'))
 local runService = cloneref(game:GetService('RunService'))
 local httpService = cloneref(game:GetService('HttpService'))
+local playersService = cloneref(game:GetService('Players'))
 
 local fontsize = Instance.new('GetTextBoundsParams')
 fontsize.Width = math.huge
@@ -517,6 +518,16 @@ local function checkKeybinds(compare, target, key)
 	return false
 end
 
+local function getPlayerFromText(text)
+	if text ~= '' then
+		for _, plr in playersService:GetPlayers() do
+			if plr.Name:sub(1, #text):lower() == text:lower() then
+				return plr.Name
+			end
+		end
+	end
+end
+
 local function getTableSize(dict)
 	local size = 0
 	for _ in dict do
@@ -918,6 +929,7 @@ function vape:LoadGUI()
 			Size = UDim2.fromOffset(17, 16),
 			Placeholder = 'Roblox username',
 			Color = Color3.fromRGB(5, 134, 105),
+			Player = true,
 			Function = function()
 				friends.Update:Fire()
 				friends.ColorUpdate:Fire(friendscolor.Hue, friendscolor.Sat, friendscolor.Value)
@@ -983,6 +995,7 @@ function vape:LoadGUI()
 		Icon = getvapeasset('newvape/assets/new/friends.png'),
 		Size = UDim2.fromOffset(17, 16),
 		Placeholder = 'Roblox username',
+		Player = true,
 		Function = function()
 			targets.Update:Fire()
 		end
@@ -1078,7 +1091,7 @@ function vape:LoadGUI()
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end,
 		Tooltip = 'This will set your profile to the default settings of Vape'
@@ -1099,7 +1112,7 @@ function vape:LoadGUI()
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end,
 		Tooltip = 'Reloads vape for debugging purposes'
@@ -1232,7 +1245,7 @@ function vape:LoadGUI()
 				if shared.VapeDeveloper then
 					loadstring(readfile('newvape/loader.lua'), 'loader')()
 				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+					loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeCompiled/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 				end
 			end
 		end,
@@ -2223,6 +2236,10 @@ function vape:LoadGUI()
 			vape.CurrentTooltip()
 		end
 	
+		if vape.Autocomplete and input.KeyCode == Enum.KeyCode.Tab then
+			vape.Autocomplete()
+		end
+	
 		if not inputService:GetFocusedTextBox() and input.KeyCode ~= Enum.KeyCode.Unknown then
 			table.insert(vape.HeldKeybinds, input.KeyCode.Name)
 			if vape.Binding then return end
@@ -2351,10 +2368,13 @@ function vape:SortCategories()
 
 	for _, sort in sorting do
 		table.sort(sort)
-		for index, name in sort do
-			self.Modules[name].Index = index
+
+		local index = 2
+		for _, name in sort do
+			self.Modules[name].Index = index / 2
 			self.Modules[name].Object.LayoutOrder = index
-			self.Modules[name].Children.LayoutOrder = index
+			self.Modules[name].Children.LayoutOrder = index + 1
+			index += 2
 		end
 	end
 end
@@ -3198,6 +3218,20 @@ components = {
 		addvalue.TextSize = 13
 		addvalue.TextXAlignment = Enum.TextXAlignment.Left
 		addvalue.Parent = addbkg
+		local autocomplete
+		if props.Player then
+			addvalue.ZIndex = 2
+			autocomplete = Instance.new('TextLabel')
+			autocomplete.BackgroundTransparency = 1
+			autocomplete.FontFace = uipallet.Font
+			autocomplete.Position = UDim2.fromOffset(10, 0)
+			autocomplete.Size = UDim2.new(1, -35, 1, 0)
+			autocomplete.Text = ''
+			autocomplete.TextColor3 = Color3.new(0.6, 0.6, 0.6)
+			autocomplete.TextSize = 13
+			autocomplete.TextXAlignment = Enum.TextXAlignment.Left
+			autocomplete.Parent = addbkg
+		end
 		local addbutton = Instance.new('ImageButton')
 		addbutton.BackgroundTransparency = 1
 		addbutton.Image = getvapeasset('newvape/assets/new/add.png')
@@ -3599,11 +3633,31 @@ components = {
 			component:Expand()
 		end)
 		
+		if autocomplete then
+			addvalue:GetPropertyChangedSignal('Text'):Connect(function()
+				local plr = getPlayerFromText(addvalue.Text)
+				autocomplete.Text = plr and addvalue.Text..(plr:sub(#addvalue.Text + 1, #plr)) or ''
+			end)
+		
+			addvalue.Focused:Connect(function()
+				vape.Autocomplete = function()
+					local newText = getPlayerFromText(addvalue.Text) or addvalue.Text
+					task.spawn(function()
+						addvalue:GetPropertyChangedSignal('Text'):Wait()
+						addvalue.Text = newText
+						addvalue.CursorPosition = #newText + 1
+					end)
+				end
+			end)
+		end
+		
 		addvalue.FocusLost:Connect(function(enter)
 			if enter and not table.find(component.List, addvalue.Text) then
 				component:ChangeValue(addvalue.Text)
 				addvalue.Text = ''
 			end
+		
+			vape.Autocomplete = nil
 		end)
 		
 		addvalue.MouseEnter:Connect(function()
@@ -7400,6 +7454,20 @@ components = {
 		textbox.TextSize = 13
 		textbox.TextXAlignment = Enum.TextXAlignment.Left
 		textbox.Parent = boxholder
+		local autocomplete
+		if props.Player then
+			textbox.ZIndex = 2
+			autocomplete = Instance.new('TextLabel')
+			autocomplete.BackgroundTransparency = 1
+			autocomplete.FontFace = uipallet.Font
+			autocomplete.Position = UDim2.fromOffset(10, 0)
+			autocomplete.Size = UDim2.new(1, -35, 1, 0)
+			autocomplete.Text = ''
+			autocomplete.TextColor3 = Color3.new(0.6, 0.6, 0.6)
+			autocomplete.TextSize = 13
+			autocomplete.TextXAlignment = Enum.TextXAlignment.Left
+			autocomplete.Parent = boxholder
+		end
 		local add = Instance.new('ImageButton')
 		add.BackgroundTransparency = 1
 		add.Image = getvapeasset('newvape/assets/new/add.png')
@@ -7566,12 +7634,32 @@ components = {
 			end
 		end)
 		
+		if autocomplete then
+			textbox:GetPropertyChangedSignal('Text'):Connect(function()
+				local plr = getPlayerFromText(textbox.Text)
+				autocomplete.Text = plr and textbox.Text..(plr:sub(#textbox.Text + 1, #plr)) or ''
+			end)
+		
+			textbox.Focused:Connect(function()
+				vape.Autocomplete = function()
+					local newText = getPlayerFromText(textbox.Text) or textbox.Text
+					task.spawn(function()
+						textbox:GetPropertyChangedSignal('Text'):Wait()
+						textbox.Text = newText
+						textbox.CursorPosition = #newText + 1
+					end)
+				end
+			end)
+		end
+		
 		textbox.FocusLost:Connect(function(enter)
 			local newText = props.TextFunction and props.TextFunction(textbox.Text) or textbox.Text
 			if enter and not table.find(component.List, newText) then
 				component:ChangeValue(newText)
 				textbox.Text = ''
 			end
+		
+			vape.Autocomplete = nil
 		end)
 		
 		textbox.MouseEnter:Connect(function()

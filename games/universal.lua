@@ -8000,7 +8000,7 @@ run(function()
 	Clock:CreateColorSlider({
 		Name = 'Color',
 		DefaultValue = 0,
-		DefaultOpacity = 0.5,
+		DefaultOpacity = 0.4,
 		Function = function(hue, sat, val, opacity)
 			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 			label.BackgroundTransparency = 1 - opacity
@@ -8011,7 +8011,7 @@ run(function()
 	})
 	label = Instance.new('TextLabel')
 	label.Size = UDim2.new(0, 100, 0, 41)
-	label.BackgroundTransparency = 0.5
+	label.BackgroundTransparency = 0.6
 	label.TextSize = 15
 	label.Font = Enum.Font.Gotham
 	label.Text = '0:00 PM'
@@ -8238,7 +8238,7 @@ run(function()
 	FPS:CreateColorSlider({
 		Name = 'Color',
 		DefaultValue = 0,
-		DefaultOpacity = 0.5,
+		DefaultOpacity = 0.4,
 		Function = function(hue, sat, val, opacity)
 			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 			label.BackgroundTransparency = 1 - opacity
@@ -8246,7 +8246,7 @@ run(function()
 	})
 	label = Instance.new('TextLabel')
 	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 0.5
+	label.BackgroundTransparency = 0.6
 	label.TextSize = 15
 	label.Font = Enum.Font.Gotham
 	label.Text = 'inf FPS'
@@ -8308,11 +8308,11 @@ run(function()
 	
 			local pressed = inputType.UserInputState == Enum.UserInputState.Begin
 			key.Pressed = pressed
-			key.Tween = tweenService:Create(key.Key, TweenInfo.new(0.1), {
+			key.Tween = tweenService:Create(key.Key, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {
 				BackgroundColor3 = pressed and Color3.new(1, 1, 1) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value),
 				BackgroundTransparency = pressed and 0 or 1 - Color.Opacity
 			})
-			key.Tween2 = tweenService:Create(key.Key.TextLabel, TweenInfo.new(0.1), {
+			key.Tween2 = tweenService:Create(key.Key.TextLabel, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {
 				TextColor3 = pressed and Color3.new() or Color3.new(1, 1, 1)
 			})
 			key.Tween:Play()
@@ -8353,7 +8353,7 @@ run(function()
 	Color = Keystrokes:CreateColorSlider({
 		Name = 'Color',
 		DefaultValue = 0,
-		DefaultOpacity = 0.5,
+		DefaultOpacity = 0.4,
 		Function = function(hue, sat, val, opacity)
 			for _, v in keys do
 				if not v.Pressed then
@@ -8406,7 +8406,7 @@ run(function()
 	Memory:CreateColorSlider({
 		Name = 'Color',
 		DefaultValue = 0,
-		DefaultOpacity = 0.5,
+		DefaultOpacity = 0.4,
 		Function = function(hue, sat, val, opacity)
 			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 			label.BackgroundTransparency = 1 - opacity
@@ -8414,7 +8414,7 @@ run(function()
 	})
 	label = Instance.new('TextLabel')
 	label.Size = UDim2.new(0, 100, 0, 41)
-	label.BackgroundTransparency = 0.5
+	label.BackgroundTransparency = 0.6
 	label.TextSize = 15
 	label.Font = Enum.Font.Gotham
 	label.Text = '0 MB'
@@ -8455,7 +8455,7 @@ run(function()
 	Ping:CreateColorSlider({
 		Name = 'Color',
 		DefaultValue = 0,
-		DefaultOpacity = 0.5,
+		DefaultOpacity = 0.4,
 		Function = function(hue, sat, val, opacity)
 			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 			label.BackgroundTransparency = 1 - opacity
@@ -8467,7 +8467,7 @@ run(function()
 	})
 	label = Instance.new('TextLabel')
 	label.Size = UDim2.new(0, 100, 0, 41)
-	label.BackgroundTransparency = 0.5
+	label.BackgroundTransparency = 0.6
 	label.TextSize = 15
 	label.Font = Enum.Font.Gotham
 	label.Text = '0 ms'
@@ -8642,7 +8642,7 @@ run(function()
 	Speedmeter:CreateColorSlider({
 		Name = 'Color',
 		DefaultValue = 0,
-		DefaultOpacity = 0.5,
+		DefaultOpacity = 0.4,
 		Function = function(hue, sat, val, opacity)
 			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 			label.BackgroundTransparency = 1 - opacity
@@ -8650,7 +8650,7 @@ run(function()
 	})
 	label = Instance.new('TextLabel')
 	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 0.5
+	label.BackgroundTransparency = 0.6
 	label.TextSize = 15
 	label.Font = Enum.Font.Gotham
 	label.Text = '0 sps'
