@@ -2624,6 +2624,8 @@ run(function()
 			'prison life moment | kicked <obj>',
 			'i wonder why you got kicked | kicked <obj>',
 			'do you also want an antifling? | kicked <obj>',
+			'bro really thought he was getting away with it | kicked <obj>',
+			'anticheat finally caught up | kicked <obj>',
 		}
 	}
 	
@@ -2646,7 +2648,9 @@ run(function()
 	    Function = function(callback)
 	        if callback then
 	            AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-	                sendMessage('Kicked', plr)
+	                if Toggles.Kicked.Enabled then
+	                    sendMessage('Kicked', plr)
+	                end
 	            end))
 	        end
 	    end,
@@ -3062,6 +3066,18 @@ run(function()
 		end
 	end
 	
+	local function removeFromList(name)
+		if name and table.find(List.List, name) then
+			List:ChangeValue(name)
+		end
+	end
+	
+	local function clearList()
+		for _, name in table.clone(List.List) do
+			List:ChangeValue(name)
+		end
+	end
+	
 	KickExploit = vape.Categories.World:CreateModule({
 		Name = 'KickExploit',
 		Function = function(callback)
@@ -3069,6 +3085,10 @@ run(function()
 				if not vape.Modules.AntiFling.Enabled then
 					vape.Modules.AntiFling:Toggle()
 				end
+	
+				KickExploit:Clean(playersService.PlayerRemoving:Connect(function(plr)
+					removeFromList(plr.Name)
+				end))
 	
 				local reqTimer = os.clock()
 				local startTime = os.clock()
@@ -3105,6 +3125,7 @@ run(function()
 	
 						if ((now - startTime) > TimeLimit.Value * 60 or plrCount <= PlayerLimit.Value) then
 							if (now - reqTimer) > 1 then
+								clearList()
 								vape.Modules.ServerHop:Toggle()
 								reqTimer = now
 							end

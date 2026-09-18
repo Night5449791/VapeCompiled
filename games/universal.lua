@@ -6932,6 +6932,8 @@ run(function()
 	local oldCameraSubject, viewDeathConnection
 	local teamsService = game:GetService('Teams')
 	
+	-- Camera
+	
 	local function clearViewDeathConnection()
 		if viewDeathConnection then
 			viewDeathConnection:Disconnect()
@@ -6950,6 +6952,8 @@ run(function()
 		end
 		oldCameraSubject = nil
 	end
+	
+	-- Player lookup
 	
 	local function findPlayer(prefix, includeDead)
 		prefix = prefix and prefix:match('^%s*(.-)%s*$')
@@ -6983,6 +6987,8 @@ run(function()
 		end
 	end
 	
+	-- KickExploit
+	
 	local function syncKickTarget(player, add)
 		local kickModule = vape.Modules.KickExploit
 		local kickList = kickModule and kickModule.Options['Targets']
@@ -7002,14 +7008,43 @@ run(function()
 		notif('KickExploit', text, 5)
 	end
 	
+	-- Commands
+	
+	local teamNames = {
+		g = 'Guards',
+		i = 'Inmates',
+		guards = 'Guards',
+		inmates = 'Inmates'
+	}
+	
+	local function clickTeamButton(teamName)
+		local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
+		if not gui then return false end
+	
+		for _, holder in gui:GetChildren() do
+			local button = holder:FindFirstChild('Button')
+			if button and button.AutoButtonColor then
+				local text = (holder.Name..' '..button.Text):lower()
+				for _, label in holder:GetDescendants() do
+					if label:IsA('TextLabel') or label:IsA('TextButton') then
+						text = text..' '..label.Text:lower()
+					end
+				end
+				if text:find(teamName:lower(), 1, true) then
+					firesignal(button.MouseButton1Click)
+					return true
+				end
+			end
+		end
+	
+		return false
+	end
+	
 	local function handleTeam(args)
 		if not options.ChangeTeam.Enabled then return end
 	
-		local teamCommand = args and args:match('^%S+$')
-		local teamName = teamCommand == 'g' and 'Guards'
-			or teamCommand == 'i' and 'Inmates'
-			or teamCommand == 'guards' and 'Guards'
-			or teamCommand == 'inmates' and 'Inmates'
+		local command = args and args:match('^%S+$')
+		local teamName = command and teamNames[command:lower()]
 		if not teamName then return end
 	
 		task.spawn(function()
@@ -7026,28 +7061,7 @@ run(function()
 				task.wait(1.5)
 			end
 	
-			local clicked
-			local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
-			if gui then
-				for _, holder in gui:GetChildren() do
-					local button = holder:FindFirstChild('Button')
-					if button and button.AutoButtonColor then
-						local text = (holder.Name..' '..button.Text):lower()
-						for _, label in holder:GetDescendants() do
-							if label:IsA('TextLabel') or label:IsA('TextButton') then
-								text = text..' '..label.Text:lower()
-							end
-						end
-						if text:find(teamName:lower(), 1, true) then
-							firesignal(button.MouseButton1Click)
-							clicked = true
-							break
-						end
-					end
-				end
-			end
-	
-			if not clicked and requestTeamChange then
+			if not clickTeamButton(teamName) and requestTeamChange then
 				requestTeamChange:InvokeServer(targetTeam, 1)
 			end
 		end)
@@ -7119,6 +7133,23 @@ run(function()
 		handleTargets(args, true)
 	end
 	
+	local function findTeam(name)
+		local lowered = name:lower()
+		for _, team in teamsService:GetChildren() do
+			if team:IsA('Team') and team.Name:lower():sub(1, #lowered) == lowered then
+				return team
+			end
+		end
+	end
+	
+	local function addKickTarget(player)
+		syncKickTarget(player, true)
+		local targets = vape.Categories.Targets
+		if not table.find(targets.ListEnabled, player.Name) then
+			targets:ChangeValue(player.Name)
+		end
+	end
+	
 	local function handleKick(args)
 		if not options.Kick.Enabled then return end
 	
@@ -7128,17 +7159,35 @@ run(function()
 			return
 		end
 	
-		local name = args and (args:match('^target%s+(.+)$') or args):match('^%s*(.-)%s*$') or ''
+		local name = (args and (args:match('^target%s+(.+)$') or args) or ''):match('^%s*(.-)%s*$')
 		local lowerName = name:lower()
-		if lowerName == 'all' then
+		local teamArgs = lowerName:match('^team%s+(.+)$')
+		if teamArgs then
+			local team = findTeam(teamArgs)
+			if not team then
+				notif('KickExploit', 'No team found.', 5, 'warning')
+				return
+			end
+	
+			local members = team:GetPlayers()
+			if #members == 0 then
+				notif('KickExploit', 'No players on team '..team.Name..'.', 5, 'warning')
+				return
+			end
+	
+			for _, player in members do
+				addKickTarget(player)
+			end
+			enableKickModule('Individual', 'Flinging team '..team.Name..' ('..#members..' players).')
+		elseif lowerName == 'all' then
 			enableKickModule('All', 'Flinging all players.')
 		elseif lowerName == 'none' then
 			if kickModule.Enabled then
 				kickModule:Toggle()
 			end
 			notif('KickExploit', 'Kick disabled.', 5)
-		elseif name == '' then
-			notif('KickExploit', 'Usage: .kick <plr>, .kick all or .kick none', 5, 'warning')
+		elseif name == '' or lowerName == 'team' then
+			notif('KickExploit', 'Usage: .kick <plr>, .kick all, .kick team <team> or .kick none', 5, 'warning')
 		else
 			local player = resolvePlayer(name, true)
 			if not player then
@@ -7146,11 +7195,7 @@ run(function()
 				return
 			end
 	
-			syncKickTarget(player, true)
-			local targets = vape.Categories.Targets
-			if not table.find(targets.ListEnabled, player.Name) then
-				targets:ChangeValue(player.Name)
-			end
+			addKickTarget(player)
 			enableKickModule('Individual', 'Flinging '..player.Name..'.')
 		end
 	end
@@ -7217,6 +7262,8 @@ run(function()
 		view = handleView,
 	}
 	
+	-- Module
+	
 	ChatCommand = vape.Categories.Utility:CreateModule({
 		Name = 'ChatCommand',
 		Function = function(callback)
@@ -7239,22 +7286,24 @@ run(function()
 		end
 	})
 	
+	local function updateViewToggle(callback)
+		if callback then
+			oldCameraSubject = gameCamera.CameraSubject
+		else
+			restoreCamera()
+		end
+	end
+	
 	local toggles = {
 		{Name = 'PlayerTP', Tooltip = '.tp <plr>'},
-		{Name = 'PlayerView', Tooltip = '.view <plr>\n.unview', Function = function(callback)
-			if callback then
-				oldCameraSubject = gameCamera.CameraSubject
-			else
-				restoreCamera()
-			end
-		end},
+		{Name = 'PlayerView', Tooltip = '.view <plr>\n.unview', Function = updateViewToggle},
 		{Name = 'Rejoin', Tooltip = '.rj\n.rejoin'},
 		{Name = 'ServerHop', Tooltip = '.hop\n.serverhop'},
 		{Name = 'ReloadVape', Tooltip = '.reload'},
 		{Name = 'ChangeTeam', Tooltip = '.team <g/i>'},
 		{Name = 'Whitelist', Tooltip = '.wl/.whitelist <plr>\n.unwl/.unwhitelist <plr>'},
 		{Name = 'Blacklist', Tooltip = '.target/.blacklist <plr>\n.untarget/.unblacklist <plr>'},
-		{Name = 'Kick', Tooltip = '.kick/.kickmethod <plr>\n.kick/.kickmethod all\n.kick/.kickmethod none'},
+		{Name = 'Kick', Tooltip = '.kick/.kickmethod <plr>\n.kick/.kickmethod all\n.kick/.kickmethod team <team>\n.kick/.kickmethod none'},
 	}
 	
 	for _, toggle in toggles do
