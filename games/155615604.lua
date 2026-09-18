@@ -3070,6 +3070,7 @@ run(function()
 	
 				local reqTimer = os.clock()
 				local startTime = os.clock()
+				local checkTimer = os.clock() + 3
 				local dir = 0
 				KickExploit:Clean(runService.Heartbeat:Connect(function(dt)
 					if lplr.Team == teams.Neutral then
@@ -3095,6 +3096,28 @@ run(function()
 								reqTimer = os.clock()
 							end
 	
+							return
+						end
+					end
+	
+					if checkTimer < os.clock() then
+						checkTimer = os.clock() + 1
+						local targetsLeft
+	
+						if Mode.Value == 'Individual' then
+							for _, name in List.ListEnabled do
+								if playersService:FindFirstChild(name) then
+									targetsLeft = true
+									break
+								end
+							end
+						else
+							targetsLeft = #playersService:GetPlayers() > 1
+						end
+	
+						if not targetsLeft and KickExploit.Enabled then
+							KickExploit:Toggle()
+							notif('KickExploit', 'No targets left in server', 5)
 							return
 						end
 					end
