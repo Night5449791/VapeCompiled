@@ -2620,7 +2620,6 @@ run(function()
 	local Toggles = {}
 	local lines = {
 		Kicked = {
-			'hey anticheat kick me | kicked <obj>',
 			'prison life moment | kicked <obj>',
 			'i wonder why you got kicked | kicked <obj>',
 			'do you also want an antifling? | kicked <obj>',
