@@ -2983,6 +2983,9 @@ run(function()
 	local tempList = setmetatable({}, {
 		__mode = 'k'
 	})
+	local tempListTime = setmetatable({}, {
+		__mode = 'k'
+	})
 	local flingCache = setmetatable({}, {
 		__mode = 'k'
 	})
@@ -3019,14 +3022,14 @@ run(function()
 		end
 	
 		local result = select(2, whitelist:get(plr)) and not isFriend(plr) and plr.Team ~= teams.Neutral
-		flingCache[plr] = now + 1
+		flingCache[plr] = now + (result and 1 or 0.25)
 		flingResult[plr] = result
 		return result
 	end
 	
 	local function getTarget(seat, now)
 		local cached = tempList[seat]
-		if cached and cached.Character.Parent and cached.Humanoid.Health > 0 and not cached.Humanoid.Sit and canFling(cached, now) then
+		if cached and (tempListTime[seat] or 0) > now and cached.Character.Parent and cached.Humanoid.Health > 0 and not cached.Humanoid.Sit and canFling(cached, now) then
 			return cached
 		end
 	
@@ -3056,6 +3059,7 @@ run(function()
 		if best then
 			lastFling[best.Player] = now
 			tempList[seat] = best
+			tempListTime[seat] = now + 1
 			notif('KickExploit', 'Attempted fling: '..best.Player.Name, 5)
 			return best
 		end
@@ -3085,8 +3089,9 @@ run(function()
 							local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
 							if gui then
 								for _, holder in gui:GetChildren() do
-									if holder.Button.AutoButtonColor then
-										firesignal(holder.Button.MouseButton1Click)
+									local button = holder:FindFirstChild('Button')
+									if button and button.AutoButtonColor then
+										firesignal(button.MouseButton1Click)
 										break
 									end
 								end
@@ -3141,11 +3146,15 @@ run(function()
 						if buttonCache.time < now then
 							buttonCache.time = now + 1
 							table.clear(buttonCache.list)
-							for _, button in workspace.Prison_ITEMS.buttons:GetChildren() do
-								if button.Name == 'Car Spawner' then
-									local part = button:FindFirstChild('Car Spawner')
-									if part then
-										table.insert(buttonCache.list, part)
+							local items = workspace:FindFirstChild('Prison_ITEMS')
+							local buttons = items and items:FindFirstChild('buttons')
+							if buttons then
+								for _, button in buttons:GetChildren() do
+									if button.Name == 'Car Spawner' then
+										local part = button:FindFirstChild('Car Spawner')
+										if part then
+											table.insert(buttonCache.list, part)
+										end
 									end
 								end
 							end
@@ -3156,7 +3165,11 @@ run(function()
 							if mag < 15 and (didClick[part] or 0) < now then
 								didClick[part] = now + 0.2
 								task.spawn(function()
-									replicatedStorage.Remotes.InteractWithItem:InvokeServer(part)
+									local remotes = replicatedStorage:FindFirstChild('Remotes')
+									local interactRemote = remotes and remotes:FindFirstChild('InteractWithItem')
+									if interactRemote then
+										interactRemote:InvokeServer(part)
+									end
 								end)
 							end
 	
@@ -3180,8 +3193,11 @@ run(function()
 						if seatCache.time < now then
 							seatCache.time = now + 0.5
 							table.clear(seatCache.list)
-							for _, seat in workspace.CarContainer:QueryDescendants('VehicleSeat') do
-								table.insert(seatCache.list, seat)
+							local carContainer = workspace:FindFirstChild('CarContainer')
+							if carContainer then
+								for _, seat in carContainer:QueryDescendants('VehicleSeat') do
+									table.insert(seatCache.list, seat)
+								end
 							end
 						end
 	
