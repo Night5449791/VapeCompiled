@@ -7264,7 +7264,7 @@ run(function()
 			Default = true,
 			Function = toggle.Function
 		})
-	endz
+	end
 end)
 
 run(function()
