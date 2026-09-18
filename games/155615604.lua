@@ -3170,16 +3170,12 @@ run(function()
 	})
 	Mode = KickExploit:CreateDropdown({
 		Name = 'Mode',
-		List = {'All', 'Individual'},
-		Function = function(value)
-			List.Object.Visible = value ~= 'All'
-		end
+		List = {'All', 'Individual'}
 	})
 	List = KickExploit:CreateTextList({
 		Name = 'Targets',
 		Placeholder = 'Roblox username',
 		Player = true,
-		Visible = false,
 		Darker = true
 	})
 	Movement = KickExploit:CreateToggle({
