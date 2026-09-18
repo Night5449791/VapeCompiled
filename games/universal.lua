@@ -7129,10 +7129,16 @@ run(function()
 		end
 	
 		local name = args and (args:match('^target%s+(.+)$') or args):match('^%s*(.-)%s*$') or ''
-		if name:lower() == 'all' then
+		local lowerName = name:lower()
+		if lowerName == 'all' then
 			enableKickModule('All', 'Flinging all players.')
+		elseif lowerName == 'none' then
+			if kickModule.Enabled then
+				kickModule:Toggle()
+			end
+			notif('KickExploit', 'Kick disabled.', 5)
 		elseif name == '' then
-			notif('KickExploit', 'Usage: .kick <plr> or .kick all', 5, 'warning')
+			notif('KickExploit', 'Usage: .kick <plr>, .kick all or .kick none', 5, 'warning')
 		else
 			local player = resolvePlayer(name, true)
 			if not player then
@@ -7248,7 +7254,7 @@ run(function()
 		{Name = 'ChangeTeam', Tooltip = '.team <g/i>'},
 		{Name = 'Whitelist', Tooltip = '.wl/.whitelist <plr>\n.unwl/.unwhitelist <plr>'},
 		{Name = 'Blacklist', Tooltip = '.target/.blacklist <plr>\n.untarget/.unblacklist <plr>'},
-		{Name = 'Kick', Tooltip = '.kick/.kickmethod <plr>\n.kick/.kickmethod all'},
+		{Name = 'Kick', Tooltip = '.kick/.kickmethod <plr>\n.kick/.kickmethod all\n.kick/.kickmethod none'},
 	}
 	
 	for _, toggle in toggles do
