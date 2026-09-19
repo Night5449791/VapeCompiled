@@ -4788,10 +4788,43 @@ run(function()
 	local Teammates
 	local DistanceCheck
 	local DistanceLimit
+	local Verified
 	local Strings, Sizes, Reference = {}, {}, {}
+	local VerifiedCache = setmetatable({}, {
+		__mode = 'k'
+	})
 	local Folder = Instance.new('Folder')
 	Folder.Parent = vape.gui
 	local methodused
+	
+	local function hasVerifiedBadge(player)
+		local cached = VerifiedCache[player]
+		if cached ~= nil then
+			return cached
+		end
+	
+		local success, verified = pcall(function()
+			return player.HasVerifiedBadge
+		end)
+	
+		verified = success and verified == true
+		VerifiedCache[player] = verified
+		return verified
+	end
+	
+	local function getEntityName(ent, rich)
+		if not ent.Player then
+			return ent.Character.Name
+		end
+	
+		local player = ent.Player
+		local name = DisplayName.Enabled and player.DisplayName or player.Name
+		if Verified.Enabled and hasVerifiedBadge(player) then
+			name = rich and '<font color="rgb(29, 161, 242)">✔</font> '..name or '✔ '..name
+		end
+	
+		return whitelist:tag(player, true, rich)..name
+	end
 	
 	local Added = {
 		Normal = function(ent)
@@ -4802,7 +4835,7 @@ run(function()
 				setthreadidentity(8)
 			end
 	
-			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+			Strings[ent] = getEntityName(ent, true)
 	
 			if Health.Enabled then
 				local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
@@ -4846,7 +4879,7 @@ run(function()
 			nametag.Text.Size = 15 * Scale.Value
 			nametag.Text.Font = 0
 			nametag.Text.ZIndex = 2
-			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+			Strings[ent] = getEntityName(ent, false)
 	
 			if Health.Enabled then
 				Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
@@ -4903,7 +4936,7 @@ run(function()
 					setthreadidentity(8)
 				end
 				Sizes[ent] = nil
-				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+				Strings[ent] = getEntityName(ent, true)
 	
 				if Health.Enabled then
 					local color = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
@@ -4926,7 +4959,7 @@ run(function()
 					setthreadidentity(8)
 				end
 				Sizes[ent] = nil
-				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+				Strings[ent] = getEntityName(ent, false)
 	
 				if Health.Enabled then
 					Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
@@ -5063,6 +5096,8 @@ run(function()
 						Removed[methodused](i)
 					end
 				end
+	
+				table.clear(VerifiedCache)
 			end
 		end,
 		Tooltip = 'Renders nametags on entities through walls.'
@@ -5160,6 +5195,17 @@ run(function()
 			end
 		end,
 		Default = true
+	})
+	Verified = NameTags:CreateToggle({
+		Name = 'Verified Badge',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Shows a badge next to verified players'
 	})
 	Teammates = NameTags:CreateToggle({
 		Name = 'Priority Only',
@@ -6931,6 +6977,8 @@ run(function()
 	
 	local options = {}
 	local viewConnection
+	local followConnection
+	local followPlayer
 	local teamsService = cloneref(game:GetService('Teams'))
 	local teamAliases = {
 		g = 'Guards',
@@ -6961,6 +7009,14 @@ run(function()
 		return count
 	end
 	
+	local function disconnect(connection)
+		if connection then
+			connection:Disconnect()
+		end
+	
+		return nil
+	end
+	
 	-- Camera
 	
 	local function getLocalHumanoid()
@@ -6970,10 +7026,7 @@ run(function()
 	end
 	
 	local function clearViewConnection()
-		if viewConnection then
-			viewConnection:Disconnect()
-			viewConnection = nil
-		end
+		viewConnection = disconnect(viewConnection)
 	end
 	
 	local function restoreCamera()
@@ -7025,6 +7078,36 @@ run(function()
 		notif('Blacklist', count > 0 and 'Cleared '..count..' target'..(count == 1 and '.' or 's.') or 'No targets to clear.', 5)
 	end
 	
+	-- Follow
+	
+	local function stopFollow()
+		followConnection = disconnect(followConnection)
+		followPlayer = nil
+	end
+	
+	local function startFollow(player)
+		stopFollow()
+		followPlayer = player
+	
+		followConnection = runService.Heartbeat:Connect(function()
+			local humanoid = getLocalHumanoid()
+			if not followPlayer or not humanoid or humanoid.Health <= 0 then
+				stopFollow()
+				return
+			end
+	
+			local targetEntity = findEntity(followPlayer.Name)
+			local targetRoot = targetEntity and targetEntity.RootPart
+			if not targetRoot then return end
+	
+			if humanoid.SeatPart then
+				humanoid.Sit = false
+			end
+	
+			humanoid:MoveTo(targetRoot.Position)
+		end)
+	end
+	
 	-- Team switching
 	
 	local function clickTeamButton(teamName)
@@ -7059,7 +7142,7 @@ run(function()
 		local teamName = command and teamAliases[command:lower()]
 		if not teamName then return end
 	
-		task.spawn(function()
+		ChatCommand:Clean(task.spawn(function()
 			local remotes = replicatedStorage:FindFirstChild('Remotes')
 			local requestTeamChange = remotes and remotes:FindFirstChild('RequestTeamChange')
 			local neutral = teamsService:FindFirstChild('Neutral')
@@ -7076,7 +7159,7 @@ run(function()
 			if not clickTeamButton(teamName) and requestTeamChange then
 				requestTeamChange:InvokeServer(targetTeam, 1)
 			end
-		end)
+		end))
 	end
 	
 	local function handleReload()
@@ -7160,6 +7243,24 @@ run(function()
 		localRoot.CFrame = target.RootPart.CFrame + Vector3.new(0, 2, 0)
 	end
 	
+	local function handleFollow(args)
+		if not options.PlayerFollow.Enabled then return end
+	
+		local target = findEntity(args)
+		if not target or not target.Player then
+			notif('ChatCommand', 'No living player found.', 5, 'warning')
+			return
+		end
+	
+		startFollow(target.Player)
+		notif('ChatCommand', 'Following '..target.Player.DisplayName..'.', 5)
+	end
+	
+	local function handleUnfollow()
+		stopFollow()
+		notif('ChatCommand', 'Stopped following.', 5)
+	end
+	
 	local function handleView(args)
 		if not options.PlayerView.Enabled then return end
 	
@@ -7201,6 +7302,10 @@ run(function()
 			handleTargets(args, true)
 		elseif command == 'unview' then
 			restoreCamera()
+		elseif command == 'follow' then
+			handleFollow(args)
+		elseif command == 'unfollow' then
+			handleUnfollow()
 		elseif command == 'tp' then
 			handleTP(args)
 		elseif command == 'view' then
@@ -7211,16 +7316,21 @@ run(function()
 	ChatCommand = vape.Categories.Utility:CreateModule({
 		Name = 'ChatCommand',
 		Function = function(callback)
-			if callback then
-				ChatCommand:Clean(lplr.Chatted:Connect(onChatted))
-			else
-				restoreCamera()
-			end
+			if not callback then return end
+	
+			ChatCommand:Clean(restoreCamera)
+			ChatCommand:Clean(stopFollow)
+			ChatCommand:Clean(lplr.Chatted:Connect(onChatted))
 		end
 	})
 	
 	local toggles = {
 		{Name = 'PlayerTP', Tooltip = '.tp <plr>'},
+		{Name = 'PlayerFollow', Tooltip = '.follow <plr>\n.unfollow', Function = function(enabled)
+			if not enabled then
+				stopFollow()
+			end
+		end},
 		{Name = 'PlayerView', Tooltip = '.view <plr>\n.unview', Function = function(enabled)
 			if not enabled then
 				restoreCamera()
