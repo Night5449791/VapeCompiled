@@ -3388,6 +3388,7 @@ run(function()
 						if not targetsLeft and KickExploit.Enabled then
 							KickExploit:Toggle()
 							notif('KickExploit', 'No targets left in server', 5)
+							module.Options['Mode']:SetValue("All")
 							return
 						end
 					end
