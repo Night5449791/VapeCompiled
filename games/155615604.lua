@@ -2670,9 +2670,10 @@ run(function()
 	local function clearListValues(list)
 		if not list then return 0 end
 	
-		local count = #list.ListEnabled
-		if count == 0 then return 0 end
+		local count = #list.List
+		if count == 0 and #list.ListEnabled == 0 then return 0 end
 	
+		table.clear(list.List)
 		table.clear(list.ListEnabled)
 		list:ChangeValue()
 		return count
