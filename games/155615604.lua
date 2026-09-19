@@ -1843,52 +1843,37 @@ end)
 
 run(function()
 	local FastChange
+	local reqteam = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes"):FindFirstChild("RequestTeamChange")
 	local ChooseTeam
-	local teamsService = game:GetService('Teams')
-	
-	local function clickTeamButton()
-		local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
-		if gui then
-			for _, holder in gui:GetChildren() do
-				if holder.Button.AutoButtonColor then
-					firesignal(holder.Button.MouseButton1Click)
-					return true
-				end
-			end
-		end
-		return false
-	end
 	
 	FastChange = vape.Categories.Blatant:CreateModule({
 	    Name = 'FastChange',
 	    Function = function(callback)
-	        if callback then
-	            task.spawn(function()
-	                local remotes = replicatedStorage:FindFirstChild('Remotes')
-	                local reqteam = remotes and remotes:FindFirstChild('RequestTeamChange')
-	                local neutral = teamsService:FindFirstChild('Neutral')
-	                if lplr.Team ~= neutral then
-	                    if reqteam and neutral then
-	                        reqteam:InvokeServer(neutral, 1)
-	                    end
-	                    task.wait(1.5)
-	                end
-	
-	                if not clickTeamButton() then
-	                    if reqteam then
-	                        reqteam:InvokeServer(teamsService:FindFirstChild(ChooseTeam.Value), 1)
-	                    else
-	                        notif('FastChange', 'Team button not found.', 5, 'warning')
-	                    end
-	                end
-	
-	                if FastChange.Enabled then
-	                    FastChange:Toggle()
-	                end
-	            end)
+	        if callback then 
+	            if ChooseTeam.Value == 'Guards' then
+	                if lplr.Team == 'Neutral' then
+	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Guards"), 1)
+	                else
+	                    task.wait(1)
+	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
+	                    task.wait(1)
+	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Guards"), 1)
+	                end                
+	            elseif ChooseTeam.Value == 'Inmates' then
+	                if lplr.Team == 'Neutral' then
+	                    notif('FastChange', 'wait 2s for fadeGui', 2, 'warn')
+	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Inmates"), 1)
+	                else
+	                    task.wait(1)
+	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Neutral"), 1)
+	                    task.wait(1)
+	                    reqteam:InvokeServer(game:GetService("Teams"):FindFirstChild("Inmates"), 1)
+	                end   
+	            end
+	            FastChange:Toggle()
 	        end
 	    end,
-	    Tooltip = 'Instantly switch team by clicking the team select GUI'
+	    Tooltip = 'not-Automatically switch team'
 	})
 	
 	ChooseTeam = FastChange:CreateDropdown({
@@ -3006,10 +2991,15 @@ run(function()
 	local cyanColor = BrickColor.new('Cyan')
 	local seatVelocity = Vector3.new(10000, 10000, 0)
 	local seatOffset = CFrame.new(-2, -2, -12)
+	local notifTimer = 0
 	local buttonCache = {
 		time = 0,
 		list = {}
 	}
+	local isnetworkowner = isnetworkowner or function()
+		return true
+	end
+	local sethiddenproperty = sethiddenproperty or set_hidden_property or set_hidden_prop
 	
 	local function canFling(entity, now)
 		local plr = entity.Player
@@ -3029,7 +3019,7 @@ run(function()
 	
 	local function getTarget(seat, now)
 		local cached = tempList[seat]
-		if cached and (tempListTime[seat] or 0) > now and cached.Character.Parent and cached.Humanoid.Health > 0 and not cached.Humanoid.Sit and canFling(cached, now) then
+		if cached and (tempListTime[seat] or 0) > now and cached.Character.Parent and cached.Humanoid.Health > 0 and cached.SpawnTime < now and not cached.Humanoid.Sit and canFling(cached, now) then
 			return cached
 		end
 	
@@ -3048,7 +3038,7 @@ run(function()
 		local best, bestTime
 		for _, entity in targetCache.list do
 			local flingTime = lastFling[entity.Player] or 0
-			if (not best or flingTime < bestTime) and entity.Character.Parent and entity.Humanoid.Health > 0 and (now - entity.SpawnTime) > 5 then
+			if (not best or flingTime < bestTime) and entity.Character.Parent and entity.Humanoid.Health > 0 and entity.SpawnTime < now then
 				local seatPart = entity.Humanoid.SeatPart
 				if not (entity.Humanoid.Sit and seatPart and seatPart.Anchored) then
 					best, bestTime = entity, flingTime
@@ -3060,7 +3050,11 @@ run(function()
 			lastFling[best.Player] = now
 			tempList[seat] = best
 			tempListTime[seat] = now + 1
-			notif('KickExploit', 'Attempted fling: '..best.Player.Name, 5)
+			if notifTimer < now then
+				notifTimer = now + 1
+				notif('KickExploit', 'Attempted fling: '..best.Player.Name, 5)
+			end
+	
 			return best
 		end
 	end
@@ -3152,7 +3146,7 @@ run(function()
 								for _, button in buttons:GetChildren() do
 									if button.Name == 'Car Spawner' then
 										local part = button:FindFirstChild('Car Spawner')
-										if part then
+										if part and part:IsA('BasePart') then
 											table.insert(buttonCache.list, part)
 										end
 									end
@@ -3208,7 +3202,9 @@ run(function()
 								if target then
 									seat.AssemblyLinearVelocity = seatVelocity
 									seat.CFrame = CFrame.new(target.RootPart.Position) * seatOffset
-									sethiddenproperty(seat, 'PhysicsRepRootPart', target.RootPart)
+									if sethiddenproperty then
+										sethiddenproperty(seat, 'PhysicsRepRootPart', target.RootPart)
+									end
 	
 									if not wheelsKilled[carModel] then
 										local wheels = carModel:FindFirstChild('Wheels')
