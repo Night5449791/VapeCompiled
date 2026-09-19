@@ -2344,18 +2344,6 @@ run(function()
 		i = 'Inmates',
 		inmates = 'Inmates'
 	}
-	local kickTeamAliases = {
-		criminal = 'Criminals',
-		criminals = 'Criminals',
-		guard = 'Guards',
-		guards = 'Guards',
-		inmate = 'Inmates',
-		inmates = 'Inmates'
-	}
-	
-	local function plural(count)
-		return count == 1 and '.' or 's.'
-	end
 	
 	local function trim(text)
 		return text and text:match('^%s*(.-)%s*$') or nil
@@ -2377,22 +2365,6 @@ run(function()
 		table.clear(list.ListEnabled)
 		list:ChangeValue()
 		return count
-	end
-	
-	local function addListValues(list, names)
-		if not list or #names == 0 then return end
-	
-		for _, name in names do
-			if not table.find(list.List, name) then
-				table.insert(list.List, name)
-			end
-	
-			if not table.find(list.ListEnabled, name) then
-				table.insert(list.ListEnabled, name)
-			end
-		end
-	
-		list:ChangeValue()
 	end
 	
 	local function disconnect(connection)
@@ -2644,18 +2616,6 @@ run(function()
 		loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeV4ForRoblox/main/NewMainScript.lua', true))()
 	end
 	
-	local function handleLoadProfile(args)
-		if not options.LoadProfile.Enabled then return end
-	
-		local profile = trim(args)
-		if not profile or profile == '' then
-			notif('ChatCommand', 'Usage: .loadprofile <profile> or .lp <profile>', 5, 'warning')
-			return
-		end
-	
-		vape:Load(true, profile)
-	end
-	
 	local function handleHop()
 		if not options.ServerHop.Enabled then return end
 	
@@ -2712,8 +2672,7 @@ run(function()
 	local function handleKick(args)
 		if not options.Kick.Enabled then return end
 	
-		local module = kickModule()
-		if not module then
+		if not kickModule() then
 			notif('ChatCommand', 'KickExploit is not available in this game.', 5, 'warning')
 			return
 		end
@@ -2739,46 +2698,6 @@ run(function()
 		setKickTarget(player.Name, true)
 		setListValue(vape.Categories.Targets, player.Name, true)
 		startKick('Individual', 'Flinging '..player.Name..'.')
-	end
-	
-	local function getTeamPlayerNames(teamName)
-		local team = teamsService:FindFirstChild(teamName)
-		if not team then return end
-	
-		local names = {}
-		for _, plr in team:GetPlayers() do
-			if plr ~= lplr then
-				table.insert(names, plr.Name)
-			end
-		end
-	
-		return names
-	end
-	
-	local function handleKickTeam(args)
-		if not options.Kick.Enabled then return end
-	
-		local module = kickModule()
-		if not module then
-			notif('ChatCommand', 'KickExploit is not available in this game.', 5, 'warning')
-			return
-		end
-	
-		local command = trim(args)
-		if not command or command == '' then return end
-	
-		local teamName = kickTeamAliases[command:lower()]
-		if not teamName then return end
-	
-		local names = getTeamPlayerNames(teamName)
-		if not names or #names == 0 then
-			notif('KickExploit', 'No players in '..teamName..'.', 5, 'warning')
-			return
-		end
-	
-		addListValues(vape.Categories.Targets, names)
-		addListValues(module.Options['Targets'], names)
-		startKick('Individual', 'Flinging '..#names..' '..teamName..'.')
 	end
 	
 	local function handleTP(args)
@@ -2837,8 +2756,6 @@ run(function()
 	
 		if command == 'team' then
 			handleTeam(args)
-		elseif command == 'loadprofile' or command == 'lp' then
-			handleLoadProfile(args)
 		elseif command == 'reload' then
 			handleReload()
 		elseif command == 'hop' or command == 'serverhop' then
@@ -2855,8 +2772,6 @@ run(function()
 			handleTargets(args, true)
 		elseif command == 'kick' then
 			handleKick(args)
-		elseif command == 'kickteam' then
-			handleKickTeam(args)
 		elseif command == 'unview' then
 			restoreCamera()
 		elseif command == 'follow' then
@@ -2895,12 +2810,11 @@ run(function()
 		end},
 		{Name = 'Rejoin', Tooltip = '.rj\n.rejoin'},
 		{Name = 'ServerHop', Tooltip = '.hop\n.serverhop'},
-		{Name = 'LoadProfile', Tooltip = '.loadprofile <profile>\n.lp <profile>'},
 		{Name = 'ReloadVape', Tooltip = '.reload'},
 		{Name = 'ChangeTeam', Tooltip = '.team <g/i>'},
 		{Name = 'Whitelist', Tooltip = '.wl/.whitelist <plr>\n.unwl/.unwhitelist <plr>'},
 		{Name = 'Blacklist', Tooltip = '.target/.blacklist <plr>\n.untarget/.unblacklist <plr>\n.untarget all/.target all clears every target'},
-		{Name = 'Kick', Tooltip = '.kick <plr>\n.kick all\n.kick none\n.kickteam <criminals/guards/inmates>'}
+		{Name = 'Kick', Tooltip = '.kick <plr>\n.kick all\n.kick none'}
 	}
 	
 	for _, toggle in toggles do
