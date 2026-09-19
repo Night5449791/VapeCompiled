@@ -2760,11 +2760,6 @@ run(function()
 	
 	local function clearAllTargets()
 		local count = clearListValues(vape.Categories.Targets)
-		local module = kickModule()
-		if module then
-			clearListValues(module.Options['Targets'])
-		end
-	
 		notif('Blacklist', count > 0 and 'Cleared '..count..' target'..(count == 1 and '.' or 's.') or 'No targets to clear.', 5)
 	end
 	
@@ -2944,7 +2939,6 @@ run(function()
 		end
 	
 		setListValue(vape.Categories.Targets, player.Name, not remove)
-		setKickTarget(player.Name, not remove)
 		notif('Blacklist', player.DisplayName..' has been '..(remove and 'unblacklisted.' or 'blacklisted.'), 5)
 	end
 	
@@ -3498,6 +3492,10 @@ run(function()
 	local function canFling(entity, now)
 		local plr = entity.Player
 		if not plr then return false end
+	
+		local team = plr.Team
+		if not team or team == teams.Neutral then return false end
+	
 		if Mode.Value ~= 'All' and not table.find(List.ListEnabled, plr.Name) then return false end
 	
 		local expiry = flingCache[plr]
@@ -3505,10 +3503,28 @@ run(function()
 			return flingResult[plr]
 		end
 	
-		local result = select(2, whitelist:get(plr)) and not isFriend(plr) and plr.Team ~= teams.Neutral
+		local result = select(2, whitelist:get(plr)) and not isFriend(plr)
 		flingCache[plr] = now + (result and 1 or 0.25)
 		flingResult[plr] = result
 		return result
+	end
+	
+	local function removeListedTargets(names)
+		if not List or #names == 0 then return end
+	
+		for _, name in names do
+			local index = table.find(List.List, name)
+			if index then
+				table.remove(List.List, index)
+			end
+	
+			index = table.find(List.ListEnabled, name)
+			if index then
+				table.remove(List.ListEnabled, index)
+			end
+		end
+	
+		List:ChangeValue()
 	end
 	
 	local function getTarget(seat, now)
@@ -3610,15 +3626,24 @@ run(function()
 	
 					if checkTimer < now then
 						checkTimer = now + 1
-						local targetsLeft
 	
 						if Mode.Value == 'Individual' then
+							local left = {}
 							for _, name in List.ListEnabled do
-								if playersService:FindFirstChild(name) then
-									targetsLeft = true
-									break
+								if not playersService:FindFirstChild(name) then
+									table.insert(left, name)
 								end
 							end
+	
+							if #left > 0 then
+								removeListedTargets(left)
+								notif('KickExploit', 'Removed '..table.concat(left, ', ')..' (left the server)', 5)
+							end
+						end
+	
+						local targetsLeft
+						if Mode.Value == 'Individual' then
+							targetsLeft = #List.ListEnabled > 0
 						else
 							targetsLeft = playersService.NumPlayers > 1
 						end
