@@ -2353,6 +2353,10 @@ run(function()
 		inmates = 'Inmates'
 	}
 	
+	local function plural(count)
+		return count == 1 and '.' or 's.'
+	end
+	
 	local function trim(text)
 		return text and text:match('^%s*(.-)%s*$') or nil
 	end
@@ -2470,7 +2474,7 @@ run(function()
 	
 	local function clearAllTargets()
 		local count = clearListValues(vape.Categories.Targets)
-		notif('Blacklist', count > 0 and 'Cleared '..count..' target'..(count == 1 and '.' or 's.') or 'No targets to clear.', 5)
+		notif('Blacklist', count > 0 and 'Cleared '..count..' target'..plural(count) or 'No targets to clear.', 5)
 	end
 	
 	local function setKickEnabled(module, enabled)
@@ -2640,6 +2644,18 @@ run(function()
 		loadstring(game:HttpGet('https://raw.githubusercontent.com/Night5449791/VapeV4ForRoblox/main/NewMainScript.lua', true))()
 	end
 	
+	local function handleLoadProfile(args)
+		if not options.LoadProfile.Enabled then return end
+	
+		local profile = trim(args)
+		if not profile or profile == '' then
+			notif('ChatCommand', 'Usage: .loadprofile <profile> or .lp <profile>', 5, 'warning')
+			return
+		end
+	
+		vape:Load(true, profile)
+	end
+	
 	local function handleHop()
 		if not options.ServerHop.Enabled then return end
 	
@@ -2696,7 +2712,8 @@ run(function()
 	local function handleKick(args)
 		if not options.Kick.Enabled then return end
 	
-		if not kickModule() then
+		local module = kickModule()
+		if not module then
 			notif('ChatCommand', 'KickExploit is not available in this game.', 5, 'warning')
 			return
 		end
@@ -2741,7 +2758,8 @@ run(function()
 	local function handleKickTeam(args)
 		if not options.Kick.Enabled then return end
 	
-		if not kickModule() then
+		local module = kickModule()
+		if not module then
 			notif('ChatCommand', 'KickExploit is not available in this game.', 5, 'warning')
 			return
 		end
@@ -2759,7 +2777,7 @@ run(function()
 		end
 	
 		addListValues(vape.Categories.Targets, names)
-		addListValues(kickModule().Options['Targets'], names)
+		addListValues(module.Options['Targets'], names)
 		startKick('Individual', 'Flinging '..#names..' '..teamName..'.')
 	end
 	
@@ -2819,6 +2837,8 @@ run(function()
 	
 		if command == 'team' then
 			handleTeam(args)
+		elseif command == 'loadprofile' or command == 'lp' then
+			handleLoadProfile(args)
 		elseif command == 'reload' then
 			handleReload()
 		elseif command == 'hop' or command == 'serverhop' then
@@ -2875,6 +2895,7 @@ run(function()
 		end},
 		{Name = 'Rejoin', Tooltip = '.rj\n.rejoin'},
 		{Name = 'ServerHop', Tooltip = '.hop\n.serverhop'},
+		{Name = 'LoadProfile', Tooltip = '.loadprofile <profile>\n.lp <profile>'},
 		{Name = 'ReloadVape', Tooltip = '.reload'},
 		{Name = 'ChangeTeam', Tooltip = '.team <g/i>'},
 		{Name = 'Whitelist', Tooltip = '.wl/.whitelist <plr>\n.unwl/.unwhitelist <plr>'},
@@ -3215,10 +3236,7 @@ run(function()
 	local lastFling = setmetatable({}, {
 		__mode = 'k'
 	})
-	local tempList = setmetatable({}, {
-		__mode = 'k'
-	})
-	local tempListTime = setmetatable({}, {
+	local seatTargets = setmetatable({}, {
 		__mode = 'k'
 	})
 	local flingCache = setmetatable({}, {
@@ -3239,6 +3257,7 @@ run(function()
 		__mode = 'k'
 	})
 	local cyanColor = BrickColor.new('Cyan')
+	local teamNames = {'Guards', 'Inmates', 'Criminals'}
 	local seatVelocity = Vector3.new(10000, 10000, 0)
 	local seatOffset = CFrame.new(-2, -2, -12)
 	local notifTimer = 0
@@ -3254,10 +3273,10 @@ run(function()
 	local interactRemote
 	
 	local function getInteractRemote()
-		interactRemote = interactRemote or (function()
+		if not interactRemote then
 			local remotes = replicatedStorage:FindFirstChild('Remotes')
-			return remotes and remotes:FindFirstChild('InteractWithItem')
-		end)()
+			interactRemote = remotes and remotes:FindFirstChild('InteractWithItem')
+		end
 	
 		return interactRemote
 	end
@@ -3271,7 +3290,7 @@ run(function()
 	
 	local function getTeamPlayerCount()
 		local count = 0
-		for _, name in {'Guards', 'Inmates', 'Criminals'} do
+		for _, name in teamNames do
 			local team = teams:FindFirstChild(name)
 			if team then
 				count += #team:GetPlayers()
@@ -3301,6 +3320,19 @@ run(function()
 		return result
 	end
 	
+	local function isFlingable(entity, now)
+		if entity.Humanoid.Health <= 0 or entity.SpawnTime >= now or not entity.Character.Parent then
+			return false
+		end
+	
+		local seatPart = entity.Humanoid.SeatPart
+		return not (entity.Humanoid.Sit and seatPart and seatPart.Anchored)
+	end
+	
+	local function isTargetable(entity, now)
+		return isFlingable(entity, now) and canFling(entity, now)
+	end
+	
 	local function removeListedTargets(names)
 		if not List or #names == 0 then return end
 	
@@ -3320,9 +3352,9 @@ run(function()
 	end
 	
 	local function getTarget(seat, now)
-		local cached = tempList[seat]
-		if cached and (tempListTime[seat] or 0) > now and cached.Character.Parent and cached.Humanoid.Health > 0 and cached.SpawnTime < now and not cached.Humanoid.Sit and canFling(cached, now) then
-			return cached
+		local cached = seatTargets[seat]
+		if cached and cached.time > now and isTargetable(cached.entity, now) then
+			return cached.entity
 		end
 	
 		if not entitylib.isAlive then return end
@@ -3339,10 +3371,9 @@ run(function()
 	
 		local best, bestTime
 		for _, entity in targetCache.list do
-			local flingTime = lastFling[entity.Player] or 0
-			if (not best or flingTime < bestTime) and entity.Character.Parent and entity.Humanoid.Health > 0 and entity.SpawnTime < now then
-				local seatPart = entity.Humanoid.SeatPart
-				if not (entity.Humanoid.Sit and seatPart and seatPart.Anchored) then
+			if isTargetable(entity, now) then
+				local flingTime = lastFling[entity.Player] or 0
+				if not best or flingTime < bestTime then
 					best, bestTime = entity, flingTime
 				end
 			end
@@ -3350,8 +3381,7 @@ run(function()
 	
 		if best then
 			lastFling[best.Player] = now
-			tempList[seat] = best
-			tempListTime[seat] = now + 1
+			seatTargets[seat] = {entity = best, time = now + 1}
 			if notifTimer < now then
 				notifTimer = now + 1
 				notif('KickExploit', 'Attempted fling: '..best.Player.Name, 5)
@@ -3471,15 +3501,15 @@ run(function()
 						for _, part in buttonCache.list do
 							if not part.Parent then continue end
 	
-							local mag = (part.Position - root.Position).Magnitude
+							local offset = part.Position - root.Position
+							local mag = offset.Magnitude
 							if mag < 15 and (didClick[part] or 0) < now then
 								didClick[part] = now + 0.2
 								task.spawn(clickPart, part)
 							end
 	
 							if mag < 50 and part.BrickColor == cyanColor and not didMove then
-								local diff = math.clamp((part.Position - root.Position).X, -1, 1)
-								dir = math.clamp(dir + (diff * dt * 24), -12, 14)
+								dir = math.clamp(dir + (math.clamp(offset.X, -1, 1) * dt * 24), -12, 14)
 								didMove = true
 							end
 						end
@@ -3507,13 +3537,14 @@ run(function()
 	
 						for _, seat in seatCache.list do
 							local carModel = seat.Parent and seat.Parent.Parent
-							if carModel and seat.Parent and isnetworkowner(seat) then
+							if carModel and isnetworkowner(seat) then
 								local target = getTarget(seat, now)
-								if target and target.RootPart then
+								local targetRoot = target and target.RootPart
+								if targetRoot then
 									seat.AssemblyLinearVelocity = seatVelocity
-									seat.CFrame = CFrame.new(target.RootPart.Position) * seatOffset
+									seat.CFrame = CFrame.new(targetRoot.Position) * seatOffset
 									if sethiddenproperty then
-										sethiddenproperty(seat, 'PhysicsRepRootPart', target.RootPart)
+										sethiddenproperty(seat, 'PhysicsRepRootPart', targetRoot)
 									end
 	
 									if not wheelsKilled[carModel] then
@@ -3532,8 +3563,7 @@ run(function()
 				table.clear(targetCache.list)
 				table.clear(seatCache.list)
 				table.clear(buttonCache.list)
-				table.clear(tempList)
-				table.clear(tempListTime)
+				table.clear(seatTargets)
 				table.clear(lastFling)
 				table.clear(didClick)
 				interactRemote = nil
