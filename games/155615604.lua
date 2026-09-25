@@ -873,7 +873,8 @@ run(function()
 							})
 
 							if entity and entitylib.character.Humanoid.Health > 0 then
-								local canFire = not tool:GetAttribute('Local_IsShooting') and (tool:GetAttribute('Local_CurrentAmmo') or 0) > 0
+								local ammo = (tool:GetAttribute('Local_CurrentAmmo') or 0)
+								local canFire = not tool:GetAttribute('Local_IsShooting') and ammo > 0
 								if AutoFireSwitch.Enabled then
 									local ideal = getShootTool((entity.Head.Position - entitylib.character.Head.Position).Magnitude)
 									if ideal and tool ~= ideal then
@@ -1231,9 +1232,9 @@ run(function()
 					if entitylib.isAlive then
 						local root = entitylib.character.RootPart
 						local diff = math.clamp(root.Position.Y, -10, 179.99) - root.Position.Y
-						root.CFrame += Vector3.new(0, diff, 0)
 	
-						if math.abs(diff) > 0 and root.AssemblyLinearVelocity.Y > 0 then
+						if math.abs(diff) > 0 then
+							root.CFrame += Vector3.new(0, diff, 0)
 							root.AssemblyLinearVelocity *= Vector3.new(1, 0, 1)
 						end
 					end
@@ -1957,6 +1958,154 @@ run(function()
 end)
 
 run(function()
+	local VehicleFly
+	local Mode
+	local Speed
+	local welds = {}
+	local up, down = 0, 0
+	
+	VehicleFly = vape.Categories.Blatant:CreateModule({
+		Name = 'VehicleFly',
+		Function = function(callback)
+			if callback then
+				up, down = 0, 0
+				for _, v in {'InputBegan', 'InputEnded'} do
+					VehicleFly:Clean(inputService[v]:Connect(function(input)
+						if not inputService:GetFocusedTextBox() then
+							if input.KeyCode == Enum.KeyCode.E then
+								up = v == 'InputBegan' and 1 or 0
+							elseif input.KeyCode == Enum.KeyCode.Q then
+								down = v == 'InputBegan' and -1 or 0
+							end
+						end
+					end))
+				end
+	
+				if Mode.Value == 'Part' then
+					local part = Instance.new('Part')
+					part.Size = Vector3.new(50, 1, 50)
+					part.Anchored = true
+					part.CanQuery = false
+					part.Transparency = 1
+	
+					VehicleFly:Clean(part)
+					repeat
+						local seat = entitylib.isAlive and entitylib.character.Humanoid.SeatPart
+						if seat then
+							part.CFrame = CFrame.new(seat.Position - Vector3.new(0, 2.2 - (up + down), 0))
+							part.Parent = workspace
+						else
+							part.Parent = nil
+						end
+	
+						task.wait(0.05)
+					until not VehicleFly.Enabled
+				else
+					local inCar = false
+					local old
+					VehicleFly:Clean(runService.PreSimulation:Connect(function(dt)
+						local seat = entitylib.isAlive and entitylib.character.Humanoid.SeatPart
+						local root = seat and entitylib.character.RootPart
+	
+						if root then
+							if seat ~= old then
+								inCar = seat:IsDescendantOf(workspace.CarContainer) and seat:IsA('VehicleSeat')
+								if inCar then
+									welds = seat.Parent.Parent.Wheels:QueryDescendants('Rotate')
+									for _, weld in welds do
+										weld.Enabled = false
+									end
+								end
+	
+								old = seat
+							end
+	
+							if inCar then
+								root.AssemblyLinearVelocity = Vector3.new(0, 2.25, 0)
+								root.CFrame = CFrame.lookAlong(root.Position, gameCamera.CFrame.LookVector) + (entitylib.character.Humanoid.MoveDirection + Vector3.new(0, up + down, 0)) * Speed.Value * dt
+								gameCamera.CameraSubject = entitylib.character.Humanoid
+							end
+						elseif old then
+							for _, weld in welds do
+								weld.Enabled = true
+							end
+							old = nil
+						end
+					end))
+				end
+			else
+				for _, weld in welds do
+					weld.Enabled = true
+				end
+				table.clear(welds)
+			end
+		end,
+		Tooltip = 'Allow you to fly with a vehicle'
+	})
+	Mode = VehicleFly:CreateDropdown({
+		Name = 'Mode',
+		List = {'CFrame', 'Part'},
+		Function = function(val)
+			Speed.Object.Visible = val == 'CFrame'
+			if VehicleFly.Enabled then
+				VehicleFly:Toggle()
+				VehicleFly:Toggle()
+			end
+		end
+	})
+	Speed = VehicleFly:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 100,
+		Default = 60,
+		Darker = true
+	})
+end)
+
+run(function()
+	local VehicleSpeed
+	local Speed
+	local old
+	local seats = {}
+	
+	VehicleSpeed = vape.Categories.Blatant:CreateModule({
+		Name = 'VehicleSpeed',
+		Function = function(callback)
+			if callback then
+				repeat
+					local seat = entitylib.isAlive and entitylib.character.Humanoid.SeatPart
+					if seat then
+						if seat ~= old then
+							if seat:IsDescendantOf(workspace.CarContainer) then
+								seats = seat.Parent.Parent:QueryDescendants('VehicleSeat')
+							end
+	
+							old = seat
+						end
+	
+						for _, seat in seats do
+							seat.MaxSpeed = Speed.Value
+							seat.Torque = 4
+						end
+					end
+	
+					task.wait()
+				until not VehicleSpeed.Enabled
+			else
+				table.clear(seats)
+			end
+		end,
+		Tooltip = 'Increase vehicle speed'
+	})
+	Speed = VehicleSpeed:CreateSlider({
+		Name = 'Speed',
+		Min = 80,
+		Max = 200,
+		Default = 140
+	})
+end)
+
+run(function()
 	VehicleWallbang = vape.Categories.Blatant:CreateModule({
 		Name = 'VehicleWallbang',
 		Function = function(callback)
@@ -2286,24 +2435,51 @@ run(function()
 end)
 
 run(function()
+	local AutoTeam
+	
+	AutoTeam = vape.Categories.Utility:CreateModule({
+		Name = 'AutoTeam',
+		Function = function(callback)
+			if callback then
+				local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
+				if gui then
+					for _, holder in gui:GetChildren() do
+						if holder.Button.AutoButtonColor then
+							pickTeam(holder.Button)
+							break
+						end
+					end
+				end
+			end
+		end,
+		Tooltip = 'Automatically join a team when joining the server'
+	})
+end)
+
+run(function()
 	local AutoToxic
-	local Toggles = {}
-	local lines = {
-		Kicked = {
-			'prison life moment | kicked <obj>',
-			'i wonder why you got kicked | kicked <obj>',
-			'do you also want an antifling? | kicked <obj>',
-		}
-	}
+	local Toggles, Lists, Cloned, Presets = {}, {}, {}, {}
 	
-	local function sendMessage(name, obj)
-		if #lines[name] <= 0 then return end
+	local function sendMessage(name, obj, default)
+		local message = default
+		if #Lists[name].ListEnabled > 0 then
+			if #Cloned[name] <= 0 then
+				Cloned[name] = table.clone(Lists[name].ListEnabled)
+			end
 	
-		local message = lines[name][Random.new():NextInteger(1, #lines[name])]
-		message = message:gsub('<obj>', obj or '')
+			local entry = Random.new():NextInteger(1, #Cloned[name])
+			message = Cloned[name][entry]
+			table.remove(Cloned[name], entry)
+		end
+	
+		if not message then return end
+	
+		message = message and message:gsub('<obj>', obj or '') or ''
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 			if textChatService:CanUserChatAsync(lplr.UserId) then
 				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
+			else
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets[message] or Presets['So close'])
 			end
 		else
 			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, 'All')
@@ -2311,21 +2487,45 @@ run(function()
 	end
 	
 	AutoToxic = vape.Categories.Utility:CreateModule({
-	    Name = 'AutoToxic',
-	    Function = function(callback)
-	        if callback then
-	            AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
-	                sendMessage('Kicked', plr)
-	            end))
-	        end
-	    end,
-	    Tooltip = 'Says a message after a cheater gets kicked with CheatDetector enabled.'
+		Name = 'AutoToxic',
+		Function = function(callback)
+			if callback then
+				AutoToxic:Clean(vapeEvents.CheaterKicked.Event:Connect(function(plr)
+					sendMessage('Kicked', plr, 'skill issue cheat | <obj>')
+				end))
+			end
+		end,
+		Tooltip = 'Says a message after a cheater gets kicked with CheatDetector enabled.'
 	})
-	Toggles.Kicked = AutoToxic:CreateToggle({
-		Name = 'Kicked',
-		Default = true
-	})
+	for _, v in {'Kicked'} do
+		Cloned[v] = {}
+		Toggles[v] = AutoToxic:CreateToggle({
+			Name = v..' ',
+			Function = function(callback)
+				if Lists[v] then
+					Lists[v].Object.Visible = callback
+				end
+			end,
+			Default = true
+		})
+		Lists[v] = AutoToxic:CreateTextList({
+			Name = v,
+			Darker = true,
+			Function = function()
+				table.clear(Cloned[v])
+			end
+		})
+	end
 	
+	pcall(function()
+		for _, group in textChatService:GetPresetsAsync().categoryGroups do
+			for _, category in group.categories do
+				for _, message in category.messages do
+					Presets[message.value] = message.presetId
+				end
+			end
+		end
+	end)
 end)
 
 run(function()
@@ -2446,7 +2646,7 @@ run(function()
 	
 	local function clearAllTargets()
 		local count = clearListValues(vape.Categories.Targets)
-		notif('Blacklist', count > 0 and 'Cleared '..count..' target'..plural(count) or 'No targets to clear.', 5)
+		notif('Blacklist', count > 0 and 'Cleared '..count..' target'..(count == 1 and '.' or 's.') or 'No targets to clear.', 5)
 	end
 	
 	local function setKickEnabled(module, enabled)
@@ -2692,7 +2892,6 @@ run(function()
 		local player = findPlayer(name, true)
 		if not player then
 			notif('KickExploit', 'No player found.', 5, 'warning')
-			module.Options['Mode']:SetValue("All")
 			return
 		end
 	
@@ -3081,40 +3280,41 @@ run(function()
 end)
 
 run(function()
-	local AntiCarFling
-	local CarContainer
-	local CarContainerParent
-	AntiCarFling = vape.Categories.World:CreateModule({
-		Name = 'AntiCarFling',
-		Function = function(callback)
-			if callback then
-				CarContainer = workspace:FindFirstChild('CarContainer')
-				if CarContainer then
-					CarContainerParent = CarContainer.Parent
-					CarContainer.Parent = nil
-				end
-				notif('AntiCarFling', 'hided cars.', 5, 'alert')
-			elseif CarContainer then
-				CarContainer.Parent = CarContainerParent
-				CarContainer = nil
-				CarContainerParent = nil
-			end
-		end,
-		Tooltip = 'just prevents u getting fucked by cars'
-	})
-end)
-
-run(function()
 	local AntiFling
 	local modified = {}
 	
 	local function Modify(part)
-		if part:IsA('BasePart') and part.CollisionGroup == 'Vehicles' then
+		if part:IsA('BasePart') and part.CollisionGroup ~= 'Wheels' then
 			if not modified[part] then
-				modified[part] = part.CanCollide
+				modified[part] = {part.CanCollide, part.CanQuery}
+			end
+	
+			if (part:IsA('Seat') or part:IsA('VehicleSeat')) and part.Name == part.ClassName then
+				local connection
+				local prox = Instance.new('ProximityPrompt')
+				prox.ActionText = 'Enter'
+				prox.Enabled = not part.Occupant
+				prox.MaxActivationDistance = 8
+				prox.RequiresLineOfSight = false
+				prox.Parent = part
+	
+				prox.Triggered:Connect(function()
+					if entitylib.isAlive then
+						part:Sit(entitylib.character.Humanoid)
+					end
+				end)
+	
+				prox.Destroying:Connect(function()
+					connection:Disconnect()
+				end)
+	
+				connection = part:GetPropertyChangedSignal('Occupant'):Connect(function()
+					prox.Enabled = not part.Occupant
+				end)
 			end
 	
 			part.CanCollide = false
+			part.CanTouch = false
 		end
 	end
 	
@@ -3128,8 +3328,14 @@ run(function()
 				end
 			else
 				for part, value in modified do
-					part.CanCollide = value
+					part.CanCollide = value[1]
+					part.CanTouch = value[2]
 				end
+	
+				for _, prompt in workspace.CarContainer:QueryDescendants('ProximityPrompt') do
+					prompt:Destroy()
+				end
+	
 				table.clear(modified)
 			end
 		end,
@@ -3145,164 +3351,39 @@ run(function()
 	local AutoRejoin
 	local PlayerLimit
 	local TimeLimit
-	local didClick = setmetatable({}, {
+	local HopList
+	local didClick = {}
+	local lastFling = {}
+	local tempList = setmetatable({}, {
 		__mode = 'k'
 	})
-	local lastFling = setmetatable({}, {
-		__mode = 'k'
-	})
-	local seatTargets = setmetatable({}, {
-		__mode = 'k'
-	})
-	local flingCache = setmetatable({}, {
-		__mode = 'k'
-	})
-	local flingResult = setmetatable({}, {
-		__mode = 'k'
-	})
-	local targetCache = {
-		time = 0,
-		list = {}
-	}
-	local seatCache = {
-		time = 0,
-		list = {}
-	}
-	local wheelsKilled = setmetatable({}, {
-		__mode = 'k'
-	})
-	local cyanColor = BrickColor.new('Cyan')
-	local teamNames = {'Guards', 'Inmates', 'Criminals'}
-	local seatVelocity = Vector3.new(10000, 10000, 0)
-	local seatOffset = CFrame.new(-2, -2, -12)
-	local notifTimer = 0
-	local buttonCache = {
-		time = 0,
-		list = {}
-	}
-	local isnetworkowner = isnetworkowner or function()
-		return true
-	end
-	local sethiddenproperty = sethiddenproperty or set_hidden_property or set_hidden_prop
-	local enabledAntiFling = false
-	local interactRemote
 	
-	local function getInteractRemote()
-		if not interactRemote then
-			local remotes = replicatedStorage:FindFirstChild('Remotes')
-			interactRemote = remotes and remotes:FindFirstChild('InteractWithItem')
+	local function getTarget(seat)
+		if tempList[seat] and tempList[seat].Health > 0 and not (tempList[seat].Humanoid.Sit and tempList[seat].Humanoid.SeatPart.Anchored) then
+			return tempList[seat]
 		end
 	
-		return interactRemote
-	end
+		if entitylib.isAlive then
+			local cloned = table.clone(entitylib.List)
+			table.sort(cloned, function(a, b)
+				return (lastFling[a.Player.Name] or 0) < (lastFling[b.Player.Name] or 0)
+			end)
 	
-	local function clickPart(part)
-		local remote = getInteractRemote()
-		if remote then
-			remote:InvokeServer(part)
-		end
-	end
-	
-	local function getTeamPlayerCount()
-		local count = 0
-		for _, name in teamNames do
-			local team = teams:FindFirstChild(name)
-			if team then
-				count += #team:GetPlayers()
-			end
-		end
-	
-		return count
-	end
-	
-	local function canFling(entity, now)
-		local plr = entity.Player
-		if not plr then return false end
-	
-		local team = plr.Team
-		if not team or team == teams.Neutral then return false end
-	
-		if Mode.Value ~= 'All' and not table.find(List.ListEnabled, plr.Name) then return false end
-	
-		local expiry = flingCache[plr]
-		if expiry and expiry > now then
-			return flingResult[plr]
-		end
-	
-		local result = select(2, whitelist:get(plr)) and not isFriend(plr)
-		flingCache[plr] = now + (result and 1 or 0.25)
-		flingResult[plr] = result
-		return result
-	end
-	
-	local function isFlingable(entity, now)
-		if entity.Humanoid.Health <= 0 or entity.SpawnTime >= now or not entity.Character.Parent then
-			return false
-		end
-	
-		local seatPart = entity.Humanoid.SeatPart
-		return not (entity.Humanoid.Sit and seatPart and seatPart.Anchored)
-	end
-	
-	local function isTargetable(entity, now)
-		return isFlingable(entity, now) and canFling(entity, now)
-	end
-	
-	local function removeListedTargets(names)
-		if not List or #names == 0 then return end
-	
-		for _, name in names do
-			local index = table.find(List.List, name)
-			if index then
-				table.remove(List.List, index)
-			end
-	
-			index = table.find(List.ListEnabled, name)
-			if index then
-				table.remove(List.ListEnabled, index)
-			end
-		end
-	
-		List:ChangeValue()
-	end
-	
-	local function getTarget(seat, now)
-		local cached = seatTargets[seat]
-		if cached and cached.time > now and isTargetable(cached.entity, now) then
-			return cached.entity
-		end
-	
-		if not entitylib.isAlive then return end
-	
-		if targetCache.time < now then
-			targetCache.time = now + 0.1
-			table.clear(targetCache.list)
-			for _, entity in entitylib.List do
-				if canFling(entity, now) then
-					table.insert(targetCache.list, entity)
+			for _, entity in cloned do
+				if isFriend(entity.Player) then continue end
+				if not select(2, whitelist:get(entity.Player)) then continue end
+				if entity.Player.Team == teams.Neutral then continue end
+				if Mode.Value ~= 'All' and not table.find(List.ListEnabled, entity.Player.Name) then continue end
+				if not (entity.Humanoid.Sit and entity.Humanoid.SeatPart.Anchored) and entity.Humanoid.Health > 0 and (os.clock() - entity.SpawnTime) > 2 then
+					lastFling[entity.Player.Name] = os.clock()
+					tempList[seat] = entity
+					table.clear(cloned)
+					notif('KickExploit', 'Attempted fling: '..entity.Player.Name, 5)
+					return entity
 				end
 			end
-		end
 	
-		local best, bestTime
-		for _, entity in targetCache.list do
-			if isTargetable(entity, now) then
-				local flingTime = lastFling[entity.Player] or 0
-				if not best or flingTime < bestTime then
-					best, bestTime = entity, flingTime
-				end
-			end
-		end
-	
-		if best then
-			lastFling[best.Player] = now
-			seatTargets[seat] = {entity = best, time = now + 1}
-			if notifTimer < now then
-				notifTimer = now + 1
-				notif('KickExploit', 'Attempted fling: '..best.Player.Name, 5)
-			end
-	
-			return best
+			table.clear(cloned)
 		end
 	end
 	
@@ -3310,33 +3391,35 @@ run(function()
 		Name = 'KickExploit',
 		Function = function(callback)
 			if callback then
-				local antiFling = vape.Modules.AntiFling
-				enabledAntiFling = antiFling and not antiFling.Enabled
-				if enabledAntiFling then
-					antiFling:Toggle()
-				end
-	
 				local reqTimer = os.clock()
 				local startTime = os.clock()
-				local checkTimer = os.clock() + 3
-				local guiTimer = 0
-				local countTimer = 0
-				local plrCount = 0
 				local dir = 0
-				KickExploit:Clean(runService.Heartbeat:Connect(function(dt)
-					local now = os.clock()
 	
+				if not vape.Modules.AntiFling.Enabled then
+					vape.Modules.AntiFling:Toggle()
+				end
+	
+				if AutoRejoin.Enabled then
+					for _, plr in playersService:GetPlayers() do
+						if plr and plr.Team ~= teams.Neutral and table.find(HopList.ListEnabled, plr.Name) then
+							repeat
+								vape.Modules.ServerHop:Toggle()
+								task.wait(1)
+							until not KickExploit.Enabled
+	
+							return
+						end
+					end
+				end
+	
+				KickExploit:Clean(runService.Heartbeat:Connect(function(dt)
 					if lplr.Team == teams.Neutral then
-						if guiTimer < now then
-							guiTimer = now + 0.5
-							local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
-							if gui then
-								for _, holder in gui:GetChildren() do
-									local button = holder:FindFirstChild('Button')
-									if button and button.AutoButtonColor then
-										firesignal(button.MouseButton1Click)
-										break
-									end
+						local gui = lplr.PlayerGui:FindFirstChild('TeamsFrame', true)
+						if gui then
+							for _, holder in gui:GetChildren() do
+								if holder.Button.AutoButtonColor then
+									pickTeam(holder.Button)
+									break
 								end
 							end
 						end
@@ -3345,50 +3428,14 @@ run(function()
 					end
 	
 					if AutoRejoin.Enabled then
-						if countTimer < now then
-							countTimer = now + 1
-							plrCount = getTeamPlayerCount()
-						end
+						local plrCount = #teams.Guards:GetPlayers() + #teams.Inmates:GetPlayers() + #teams.Criminals:GetPlayers()
 	
-						if ((now - startTime) > TimeLimit.Value * 60 or plrCount <= PlayerLimit.Value) then
-							local serverHop = vape.Modules.ServerHop
-							if serverHop and not serverHop.Enabled and (now - reqTimer) > 1 then
-								serverHop:Toggle()
-								reqTimer = now
+						if ((os.clock() - startTime) > TimeLimit.Value * 60 or plrCount <= PlayerLimit.Value) then
+							if (os.clock() - reqTimer) > 1 then
+								vape.Modules.ServerHop:Toggle()
+								reqTimer = os.clock()
 							end
 	
-							return
-						end
-					end
-	
-					if checkTimer < now then
-						checkTimer = now + 1
-	
-						if Mode.Value == 'Individual' then
-							local left = {}
-							for _, name in List.ListEnabled do
-								if not playersService:FindFirstChild(name) then
-									table.insert(left, name)
-								end
-							end
-	
-							if #left > 0 then
-								removeListedTargets(left)
-								notif('KickExploit', 'Removed '..table.concat(left, ', ')..' (left the server)', 5)
-							end
-						end
-	
-						local targetsLeft
-						if Mode.Value == 'Individual' then
-							targetsLeft = #List.ListEnabled > 0
-						else
-							targetsLeft = playersService.NumPlayers > 1
-						end
-	
-						if not targetsLeft and KickExploit.Enabled then
-							KickExploit:Toggle()
-							notif('KickExploit', 'No targets left in server', 5)
-							module.Options['Mode']:SetValue("All")
 							return
 						end
 					end
@@ -3397,36 +3444,21 @@ run(function()
 						local root = entitylib.character.RootPart
 						local didMove
 	
-						if buttonCache.time < now then
-							buttonCache.time = now + 1
-							table.clear(buttonCache.list)
-							local items = workspace:FindFirstChild('Prison_ITEMS')
-							local buttons = items and items:FindFirstChild('buttons')
-							if buttons then
-								for _, button in buttons:GetChildren() do
-									if button.Name == 'Car Spawner' then
-										local part = button:FindFirstChild('Car Spawner')
-										if part and part:IsA('BasePart') then
-											table.insert(buttonCache.list, part)
-										end
-									end
+						for _, button in workspace.Prison_ITEMS.buttons:GetChildren() do
+							if button.Name == 'Car Spawner' then
+								local mag = (button['Car Spawner'].Position - root.Position).Magnitude
+								if mag < 15 and (didClick[button] or 0) < os.clock() then
+									didClick[button] = os.clock() + 0.2
+									task.spawn(function()
+										replicatedStorage.Remotes.InteractWithItem:InvokeServer(button['Car Spawner'])
+									end)
 								end
-							end
-						end
 	
-						for _, part in buttonCache.list do
-							if not part.Parent then continue end
-	
-							local offset = part.Position - root.Position
-							local mag = offset.Magnitude
-							if mag < 15 and (didClick[part] or 0) < now then
-								didClick[part] = now + 0.2
-								task.spawn(clickPart, part)
-							end
-	
-							if mag < 50 and part.BrickColor == cyanColor and not didMove then
-								dir = math.clamp(dir + (math.clamp(offset.X, -1, 1) * dt * 24), -12, 14)
-								didMove = true
+								if mag < 50 and button['Car Spawner'].BrickColor == BrickColor.new('Cyan') and not didMove then
+									local diff = math.clamp((button['Car Spawner'].Position - root.Position).X, -1, 1)
+									dir = math.clamp(dir + (diff * dt * 24), -12, 14)
+									didMove = true
+								end
 							end
 						end
 	
@@ -3435,74 +3467,44 @@ run(function()
 							dir = math.clamp(dir + (diff * dt * 24), -12, 14)
 						end
 	
-						if Movement.Enabled then
-							root.CFrame = CFrame.new(Vector3.new(610 + dir, 98, 2494))
-							root.AssemblyLinearVelocity = Vector3.zero
+						if Movement.Enabled and ((root.Position - Vector3.new(633, 98, 2489)).Magnitude < 40 or (os.clock() - entitylib.character.SpawnTime) < 2) then
+							root.CFrame = CFrame.new(Vector3.new(610 + dir, 90, 2494))
+							root.AssemblyLinearVelocity = Vector3.new(24, 0, 0)
 						end
 	
-						if seatCache.time < now then
-							seatCache.time = now + 0.5
-							table.clear(seatCache.list)
-							local carContainer = workspace:FindFirstChild('CarContainer')
-							if carContainer then
-								for _, seat in carContainer:QueryDescendants('VehicleSeat') do
-									table.insert(seatCache.list, seat)
-								end
-							end
-						end
+						for _, seat in workspace.CarContainer:QueryDescendants('VehicleSeat') do
+							if isnetworkowner(seat) then
+								local target = getTarget(seat)
+								if target then
+									seat.AssemblyLinearVelocity = Vector3.new(10000, 10000, 0)
+									seat.CFrame = CFrame.new(target.RootPart.Position) * CFrame.new(-2, -2, -12)
+									sethiddenproperty(seat, 'PhysicsRepRootPart', target.RootPart)
 	
-						for _, seat in seatCache.list do
-							local carModel = seat.Parent and seat.Parent.Parent
-							if carModel and isnetworkowner(seat) then
-								local target = getTarget(seat, now)
-								local targetRoot = target and target.RootPart
-								if targetRoot then
-									seat.AssemblyLinearVelocity = seatVelocity
-									seat.CFrame = CFrame.new(targetRoot.Position) * seatOffset
-									if sethiddenproperty then
-										sethiddenproperty(seat, 'PhysicsRepRootPart', targetRoot)
-									end
-	
-									if not wheelsKilled[carModel] then
-										local wheels = carModel:FindFirstChild('Wheels')
-										if wheels then
-											wheels:Destroy()
-										end
-										wheelsKilled[carModel] = true
+									local wheels = seat.Parent.Parent:FindFirstChild('Wheels')
+									if wheels then
+										wheels:Destroy()
 									end
 								end
 							end
 						end
 					end
 				end))
-			else
-				table.clear(targetCache.list)
-				table.clear(seatCache.list)
-				table.clear(buttonCache.list)
-				table.clear(seatTargets)
-				table.clear(lastFling)
-				table.clear(didClick)
-				interactRemote = nil
-	
-				if enabledAntiFling then
-					enabledAntiFling = false
-					local antiFling = vape.Modules.AntiFling
-					if antiFling and antiFling.Enabled then
-						antiFling:Toggle()
-					end
-				end
 			end
 		end,
 		Tooltip = 'aesthetical, just remove collisions on vehicles please, this is the worst.'
 	})
 	Mode = KickExploit:CreateDropdown({
 		Name = 'Mode',
-		List = {'All', 'Individual'}
+		List = {'All', 'Individual'},
+		Function = function(value)
+			List.Object.Visible = value ~= 'All'
+		end
 	})
 	List = KickExploit:CreateTextList({
 		Name = 'Targets',
 		Placeholder = 'Roblox username',
 		Player = true,
+		Visible = false,
 		Darker = true
 	})
 	Movement = KickExploit:CreateToggle({
@@ -3514,6 +3516,7 @@ run(function()
 		Function = function(callback)
 			PlayerLimit.Object.Visible = callback
 			TimeLimit.Object.Visible = callback
+			HopList.Object.Visible = callback
 		end,
 		Tooltip = 'Automatically server hop after certain conditions are met.'
 	})
@@ -3538,6 +3541,14 @@ run(function()
 		Suffix = function(value)
 			return value == 1 and 'minute' or 'minutes'
 		end
+	})
+	HopList = KickExploit:CreateTextList({
+		Name = 'Hop List',
+		Placeholder = 'Roblox username',
+		Tooltip = 'Automatically hop if the player is spawned in and in the server, good for multiboxing.',
+		Player = true,
+		Visible = false,
+		Darker = true
 	})
 end)
 
