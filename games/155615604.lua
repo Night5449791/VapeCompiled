@@ -3822,8 +3822,7 @@ run(function()
 		Visible = false,
 		Darker = true
 	})
-		end
-	})
+	
 end)
 
 run(function()
